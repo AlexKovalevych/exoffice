@@ -1,6 +1,6 @@
 # Exoffice
 
-## Warning! This library is under heavy development and ready for use
+## Warning! This library is under heavy development and not ready for use
 
 **TODO: Add description**
 
@@ -16,10 +16,3 @@ If [available in Hex](https://hex.pm/docs/publish), the package can be installed
     end
     ```
 
-  2. Ensure `exoffice` is started before your application:
-
-    ```elixir
-    def application do
-      [applications: [:exoffice]]
-    end
-    ```

@@ -6,16 +6,9 @@ defmodule Exoffice.Parser.CSV do
 
   @doc """
 
-  ## Example
-  Parse file `test.csv` in `./test/test_data`:
-
-  iex> [{:ok, pid}] = Exoffice.parse("./test/test_data/test.csv")
+  iex> [{:ok, pid}] = Exoffice.Parser.CSV.parse("./test/test_data/test.csv")
   iex> is_pid(pid)
   true
-
-  iex> [{:ok, pid}] = Exoffice.parse("./test/test_data/test.csv")
-  iex> rows = Exoffice.count_rows(pid)
-  5
 
   """
   def parse(path, options \\ []) do
@@ -32,18 +25,71 @@ defmodule Exoffice.Parser.CSV do
     end
   end
 
+  @doc """
+
+  ## Example
+
+  iex> {:ok, pid} = Exoffice.Parser.CSV.parse_sheet("./test/test_data/test.csv", 1)
+  iex> is_pid(pid)
+  true
+
+  """
   def parse_sheet(path, _, options \\ []) do
     parse(path, options) |> List.first
   end
 
+  @doc """
+
+  ## Example
+
+  iex> {:ok, pid} = Exoffice.Parser.CSV.parse_sheet("./test/test_data/test.csv", 1)
+  iex> Exoffice.Parser.CSV.count_rows(pid)
+  22
+
+  """
   def count_rows(pid) do
     Agent.get(pid, &Enum.count/1)
   end
 
+  @doc """
+
+  ## Example
+
+  iex> {:ok, pid} = Exoffice.Parser.CSV.parse_sheet("./test/test_data/test.csv", 1)
+  iex> stream = Exoffice.Parser.CSV.get_rows(pid) |> Enum.to_list
+  [["2", "23", "23", "2", "asg", "2", "sadg"],
+  ["sd", "123", "2", "3", "12", "", "23"],
+  ["g", "", "", "1", "", "1", ""],
+  ["2016-01-01", "", "", "", "3", "", ""],
+  ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""],
+  ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""],
+  ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""],
+  ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""],
+  ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""],
+  ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""],
+  ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""],
+  ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""],
+  ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""]]
+
+  """
   def get_rows(pid) do
     Agent.get(pid, &(&1))
   end
 
+  @doc """
+
+  ## Example
+
+  iex> [{:ok, pid}] = Exoffice.Parser.CSV.parse("./test/test_data/test.csv")
+  iex> Process.alive? pid
+  true
+
+  iex> [{:ok, pid}] = Exoffice.Parser.CSV.parse("./test/test_data/test.csv")
+  iex> Exoffice.Parser.CSV.close(pid)
+  iex> Process.alive? pid
+  false
+
+  """
   def close(pid) do
     if Process.alive?(pid), do: Agent.stop(pid), else: :ok
   end
