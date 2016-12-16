@@ -17,18 +17,18 @@ defmodule Exoffice.Parser.Excel2003.String do
   def read_unicode_string(data, character_count) do
     # offset: 0: size: 1; option flags
     # bit: 0; mask: 0x01; character compression (0 = compressed 8-bit, 1 = uncompressed 16-bit)
-		is_compressed = !((0x01 &&& OLE.decoded_binary_at(data, 0)) >>> 0)
+    is_compressed = !((0x01 &&& OLE.decoded_binary_at(data, 0)) >>> 0)
 
-		# bit: 2; mask: 0x04; Asian phonetic settings
-		has_asian = (0x04) &&& OLE.decoded_binary_at(data, 0) >>> 2
+    # bit: 2; mask: 0x04; Asian phonetic settings
+    has_asian = (0x04) &&& OLE.decoded_binary_at(data, 0) >>> 2
 
-		# bit: 3; mask: 0x08; Rich-Text settings
-		has_rich_text = (0x08) &&& OLE.decoded_binary_at(data, 0) >>> 3
+    # bit: 3; mask: 0x08; Rich-Text settings
+    has_rich_text = (0x08) &&& OLE.decoded_binary_at(data, 0) >>> 3
 
-		# offset: 1: size: var; character array
-		# this offset assumes richtext and Asian phonetic settings are off which is generally wrong
-		# needs to be fixed
-    length = if is_compressed, do: character_count, else: 2 * character_count
+    # offset: 1: size: var; character array
+    # this offset assumes richtext and Asian phonetic settings are off which is generally wrong
+    # needs to be fixed
+    length = if is_compressed, do: character_count * 2, else: character_count
     value = encode_utf_16(binary_part(data, 1, length), is_compressed)
     size = if is_compressed, do: 1 + character_count, else: 1 + 2 * character_count
 
@@ -45,7 +45,7 @@ defmodule Exoffice.Parser.Excel2003.String do
   def encode_utf_16(string, true) do
     string
     |> uncompress_byte_string
-    |> encode_utf_16(0)
+    |> encode_utf_16(false)
   end
 
   defp uncompress_byte_string(string) do
@@ -59,7 +59,7 @@ defmodule Exoffice.Parser.Excel2003.String do
     # offset: 0; size: 1; length of the string (character count)
     ln = OLE.decoded_binary_at(string, 0)
 
-		# offset: 1: size: var; character array (8-bit characters)
+    # offset: 1: size: var; character array (8-bit characters)
     value = decode_codepage(binary_part(string, 1, ln), codepage)
 
     %__MODULE__{

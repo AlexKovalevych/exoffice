@@ -109,7 +109,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     {stream, pos, excel}
   end
 
-  def parse(stream, pos, excel) when (byte_size(stream) > pos) do
+  def parse(stream, pos, excel) when (byte_size(stream) - 4 > pos) do
     code = OLE.get_int_2d(stream, pos)
     case code do
       @xls_type_bof -> read_bof(stream, pos, excel)
@@ -379,7 +379,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     SharedString.new
 
     # get spliced record data
-    {record_data, splice_offsets, pos} = get_spliced_record_data(stream, pos, [0], <<>>, 0, @xls_type_continue)
+    {record_data, splice_offsets, pos} = get_spliced_record_data(stream, pos, [0], <<>>, 1, @xls_type_continue)
 
     nm = OLE.get_int_4d(record_data, 4)
 
@@ -387,7 +387,6 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     |> Stream.scan(8, fn i, pos ->
       {num_chars, pos} = {OLE.get_int_2d(record_data, pos), pos + 2}
       {option_flags, pos} = {OLE.decoded_binary_at(record_data, pos), pos + 1}
-
 
       # bit: 0; mask: 0x01; 0 = compressed; 1 = uncompressed
       is_compressed = (option_flags &&& 0x01) == 0
@@ -464,7 +463,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
 
   defp get_ret_str(record_data, splice_offsets, ret_str, chars_left, pos, is_compressed) when chars_left > 0 do
     # look up next limit position, in case the string span more than one continue record
-    limit_pos = Enum.drop_while(splice_offsets, &(pos > &1)) |> List.first
+    limit_pos = Enum.drop_while(splice_offsets, &(pos >= &1)) |> List.first
 
     # repeated option flags
     # OpenOffice.org documentation 5.21
@@ -474,17 +473,17 @@ defmodule Exoffice.Parser.Excel2003.Loader do
       is_compressed && option == 0 ->
         # 1st fragment compressed
         # this fragment compressed
-        len = min(chars_left, limit_pos - pos)
+        len = min(chars_left, limit_pos - pos) |> round
         {ret_str <> binary_part(record_data, pos, len), chars_left - len, true, len}
       !is_compressed && option != 0 ->
         # 1st fragment uncompressed
         # this fragment uncompressed
-        len = min(chars_left * 2, limit_pos - pos)
-        {ret_str <> binary_part(record_data, pos, len), chars_left - len / 2, false, len}
+        len = min(chars_left * 2, limit_pos - pos) |> round
+        {ret_str <> binary_part(record_data, pos, len), round(chars_left - len / 2), false, len}
       !is_compressed && option == 0 ->
         # 1st fragment uncompressed
         # this fragment compressed
-        len = min(chars_left, limit_pos - pos)
+        len = min(chars_left, limit_pos - pos) |> round
         ret_str = Enum.reduce(0..len - 1, ret_str, fn i, acc ->
           acc <> binary_part(record_data, pos + i, 1) <> <<0>>
         end)
@@ -495,9 +494,9 @@ defmodule Exoffice.Parser.Excel2003.Loader do
         ret_str = Enum.reduce(0..byte_size(ret_str) - 1, "", fn i, acc ->
           acc <> binary_part(ret_str, i, 1) <> <<0>>
         end)
-        len = min(chars_left * 2, limit_pos - pos)
+        len = min(chars_left * 2, limit_pos - pos) |> round
         ret_str = ret_str <> binary_part(record_data, pos, len)
-        {ret_str, chars_left - len / 2, false, len}
+        {ret_str, round(chars_left - len / 2), false, len}
     end
 
     get_ret_str(record_data, splice_offsets, ret_str, chars_left, pos + len, is_compressed)
