@@ -135,19 +135,17 @@ defmodule Exoffice.Parser.Excel2003.OLE do
         big_block_depot_blocks
     end
 
-    bbs = @big_block_size / 4
     big_block_chain = case num_big_block_depot_blocks do
       0 -> ""
       _ ->
-        {_, big_block_chain} = 0..num_big_block_depot_blocks - 1
-        |> Enum.reduce({0, ""}, fn i, {pos, big_block_chain} ->
+        0..num_big_block_depot_blocks - 1
+        |> Enum.reduce("", fn i, big_block_chain ->
           new_pos = (Enum.at(big_block_depot_blocks, i) + 1) * @big_block_size
-          {new_pos + @big_block_size, big_block_chain <> binary_part(binary, new_pos, @big_block_size)}
+          big_block_chain <> binary_part(binary, new_pos, @big_block_size)
         end)
-        big_block_chain
     end
 
-    small_block_chain = get_sbd_block(binary, big_block_chain, "", sbd_start_block, 0)
+    small_block_chain = get_sbd_block(binary, big_block_chain, "", sbd_start_block)
     entry = read_data(binary, "", root_start_block, big_block_chain)
 
     loader = %__MODULE__{
@@ -243,16 +241,15 @@ defmodule Exoffice.Parser.Excel2003.OLE do
     read_data(binary, new_data, new_block, big_block_chain)
   end
 
-  defp get_sbd_block(_, _, small_block_chain, -2, _) do
+  defp get_sbd_block(_, _, small_block_chain, -2) do
     small_block_chain
   end
 
-  defp get_sbd_block(binary, big_block_chain, small_block_chain, sbd_block, pos) do
+  defp get_sbd_block(binary, big_block_chain, small_block_chain, sbd_block) do
       pos = (sbd_block + 1) * @big_block_size
       small_block_chain = small_block_chain <> binary_part(binary, pos, @big_block_size)
-      pos = pos + @big_block_size
       sbd_block = get_int_4d(big_block_chain, sbd_block * 4)
-      get_sbd_block(binary, big_block_chain, small_block_chain, sbd_block, pos)
+      get_sbd_block(binary, big_block_chain, small_block_chain, sbd_block)
   end
 
   def get_int_4d(binary, pos) do
