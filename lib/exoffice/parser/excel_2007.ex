@@ -13,7 +13,7 @@ defmodule Exoffice.Parser.Excel2007 do
   true
 
   """
-  def parse(path, options \\ []) do
+  def parse(path, _options \\ []) do
     Xlsxir.multi_extract(path)
   end
 
@@ -48,7 +48,7 @@ defmodule Exoffice.Parser.Excel2007 do
   ## Example
 
   iex> {:ok, pid} = Exoffice.Parser.Excel2007.parse_sheet("./test/test_data/test.xlsx", 1)
-  iex> stream = Exoffice.Parser.Excel2007.get_rows(pid) |> Enum.to_list
+  iex> Exoffice.Parser.Excel2007.get_rows(pid) |> Enum.to_list
   [[23, 3, 12, 1, nil], [2, 12, 41, nil, nil],
   [nil, nil, nil, nil, nil], [nil, nil, nil, nil, nil],
   [nil, nil, nil, nil, nil], [nil, nil, nil, nil, nil],

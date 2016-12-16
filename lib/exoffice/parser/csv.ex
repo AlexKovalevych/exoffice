@@ -56,7 +56,7 @@ defmodule Exoffice.Parser.CSV do
   ## Example
 
   iex> {:ok, pid} = Exoffice.Parser.CSV.parse_sheet("./test/test_data/test.csv", 1)
-  iex> stream = Exoffice.Parser.CSV.get_rows(pid) |> Enum.to_list
+  iex> Exoffice.Parser.CSV.get_rows(pid) |> Enum.to_list
   [["2", "23", "23", "2", "asg", "2", "sadg"],
   ["sd", "123", "2", "3", "12", "", "23"],
   ["g", "", "", "1", "", "1", ""],

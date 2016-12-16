@@ -43,8 +43,8 @@ defmodule Exoffice.Parser.Excel2003.Loader do
          {:ok, binary}        <- File.read(path),
          {:ok, ole}           <- OLE.parse_blocks(binary),
          loader               <- get_stream(ole),
-         {stream, pos, excel} <- parse(loader.data, 0, %Exoffice.Parser.Excel2003{data_size: byte_size(loader.data)}) do
-         parse_sheets(stream, pos, excel, sheet)
+         {stream, _pos, excel} <- parse(loader.data, 0, %Exoffice.Parser.Excel2003{data_size: byte_size(loader.data)}) do
+         parse_sheets(stream, excel, sheet)
     else
       {:error, reason} -> {:error, reason}
     end
@@ -62,7 +62,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
         OLE.get_stream(ole, prop, prop.start_block, "")
     end)
 
-    {:ok, pid} = Index.new
+    Index.new
 
     %__MODULE__{
       data: data,
@@ -71,10 +71,10 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     }
   end
 
-  defp parse_sheets(stream, pos, excel, sheet) do
+  defp parse_sheets(stream, excel, sheet) do
     sheets = if is_nil(sheet), do: excel.sheets, else: [Enum.at(excel.sheets, sheet)]
     pids = sheets
-    |> Enum.filter(fn %{sheet_type: type, name: name} ->
+    |> Enum.filter(fn %{sheet_type: type} ->
       type == <<0>>
     end)
     |> Enum.map(fn sheet ->
@@ -82,7 +82,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
       table_id = TableId.get
       TableId.delete
       parse_sheet_part(stream, sheet.offset, excel, table_id)
-      {:ok, table_id}
+      {:ok, table_id, excel}
     end)
     Index.delete
     SharedString.delete
@@ -251,7 +251,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     end
   end
 
-  defp codepage_to_name(codepage \\ 1252) do
+  defp codepage_to_name(codepage) do
     case codepage do
       367 -> {:ok, "ASCII"} # ASCII
       437 -> {:ok, "CP437"} # OEM US
@@ -358,9 +358,6 @@ defmodule Exoffice.Parser.Excel2003.Loader do
   end
 
   defp get_spliced_record_data(stream, pos, splice_offsets, data, i, @xls_type_continue) do
-    # offset: 0; size: 2; identifier
-    identifier = OLE.get_int_2d(stream, pos)
-
     # offset: 2; size: 2; length
     length = OLE.get_int_2d(stream, pos + 2)
     data = data <> read_record_data(stream, pos + 4, length)
@@ -370,7 +367,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     get_spliced_record_data(stream, new_pos, splice_offsets, data, i + 1, OLE.get_int_2d(stream, new_pos))
   end
 
-  defp get_spliced_record_data(stream, pos, splice_offsets, data, i, _) do
+  defp get_spliced_record_data(_, pos, splice_offsets, data, _, _) do
     {data, splice_offsets, pos}
   end
 
@@ -384,7 +381,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     nm = OLE.get_int_4d(record_data, 4)
 
     0..nm - 1
-    |> Stream.scan(8, fn i, pos ->
+    |> Stream.scan(8, fn _, pos ->
       {num_chars, pos} = {OLE.get_int_2d(record_data, pos), pos + 2}
       {option_flags, pos} = {OLE.decoded_binary_at(record_data, pos), pos + 1}
 
@@ -435,7 +432,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
       ret_str = ExofficeString.encode_utf_16(ret_str, is_compressed)
 
       # read additional Rich-Text information, if any
-      {fmt_runs, pos} = case has_rich_text do
+      {_fmt_runs, pos} = case has_rich_text do
         true ->
           # list of formatting runs
           fmt_runs = Enum.reduce(0..formatting_runs - 1, fn i, acc ->
@@ -502,7 +499,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     get_ret_str(record_data, splice_offsets, ret_str, chars_left, pos + len, is_compressed)
   end
 
-  defp get_ret_str(record_data, splice_offsets, ret_str, chars_left, pos, is_compressed) do
+  defp get_ret_str(_record_data, _splice_offsets, ret_str, _, pos, is_compressed) do
     {ret_str, is_compressed, pos}
   end
 
