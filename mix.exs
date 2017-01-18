@@ -4,9 +4,12 @@ defmodule Exoffice.Mixfile do
   def project do
     [app: :exoffice,
      version: "0.1.0",
+     name: "Exoffice",
      elixir: "~> 1.2",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
+     description: description,
+     package: package,
      deps: deps()]
   end
 
@@ -15,6 +18,13 @@ defmodule Exoffice.Mixfile do
   # Type "mix help compile.app" for more information
   def application do
     [applications: [:logger, :iconv]]
+  end
+
+  defp description do
+    """
+      File parser for popular excel formats: xls (Excel 2003), csv, xlsx (Excel 2007).
+      Stores data in ets (except for csv, which uses stream).
+    """
   end
 
   # Dependencies can be Hex packages:
@@ -35,4 +45,16 @@ defmodule Exoffice.Mixfile do
       {:iconv, "~> 1.0"}
     ]
   end
+
+  defp package do
+    [
+      maintainers: ["Alex Kovalevych"],
+      licenses: ["MIT License"],
+      links: %{
+        "Github" => "https://github.com/alexkovalevych/exoffice",
+        "Change Log" => "https://hexdocs.pm/exoffice/changelog.html"
+      }
+    ]
+  end
+
 end

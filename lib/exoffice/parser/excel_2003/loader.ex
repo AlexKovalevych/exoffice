@@ -43,8 +43,9 @@ defmodule Exoffice.Parser.Excel2003.Loader do
          {:ok, binary}        <- File.read(path),
          {:ok, ole}           <- OLE.parse_blocks(binary),
          loader               <- get_stream(ole),
-         {stream, _pos, excel} <- parse(loader.data, 0, %Exoffice.Parser.Excel2003{data_size: byte_size(loader.data)}) do
-         parse_sheets(stream, excel, sheet)
+         {stream, _pos, excel} <- parse(loader.data, 0, %Exoffice.Parser.Excel2003{data_size: byte_size(loader.data)}),
+         pids = parse_sheets(stream, excel, sheet) do
+         Enum.map(pids, fn {status, pid, _} -> {status, pid} end)
     else
       {:error, reason} -> {:error, reason}
     end
