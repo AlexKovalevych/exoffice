@@ -4,7 +4,7 @@ defmodule Exoffice.Mixfile do
   def project do
     [app: :exoffice,
      version: "0.1.0",
-     elixir: "~> 1.3",
+     elixir: "~> 1.2",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
      deps: deps()]
@@ -28,7 +28,7 @@ defmodule Exoffice.Mixfile do
   # Type "mix help deps" for more examples and options
   defp deps do
     [
-      {:xlsxir, github: "kennellroxco/xlsxir"},
+      {:xlsxir, "~> 1.4"},
       {:csv, "~> 1.4"},
       {:ex_doc, "~> 0.14.4"},
       {:earmark, "~> 1.0"},
