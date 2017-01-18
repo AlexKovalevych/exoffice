@@ -1,5 +1,9 @@
 # Exoffice
 
+[![Build Status](https://travis-ci.org/AlexKovalevych/exoffice.svg?branch=master)](https://travis-ci.org/AlexKovalevych/exoffice)
+
+Exoffice is an Elixir library that parses common Excel formats: .xls (Excel 2003), .xlsx, (Excel 2007), .csv and saves parsed data into `ets` (excep .csv, which uses stream)
+
 ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed as:
