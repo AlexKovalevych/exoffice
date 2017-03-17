@@ -233,11 +233,27 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     mantissa = 0x100000 ||| (rknumhigh &&& 0x000fffff)
     mantissa_low1 = (rknumlow &&& 0x80000000) >>> 31
     mantissa_low2 = rknumlow &&& 0x7fffffff
-    value = mantissa / :math.pow(2, 20 - exp)
+    value = if 20 - exp > 1023 do
+      0
+    else
+      mantissa / :math.pow(2, 20 - exp)
+    end
 
     value
-    |> (fn v -> if mantissa_low1 != 0, do: v + 1 / :math.pow(2, 21 - exp), else: v end).()
-    |> (fn v -> v + mantissa_low2 / :math.pow(2, 52 - exp) end).()
+    |> (fn v ->
+      if mantissa_low1 != 0 && (21 - exp) <= 1023 do
+        v + 1 / :math.pow(2, 21 - exp)
+      else
+        v
+      end
+    end).()
+    |> (fn v ->
+      if 52 - exp > 1023 do
+        v
+      else
+        v + mantissa_low2 / :math.pow(2, 52 - exp)
+      end
+    end).()
     |> (fn v -> if sign != 0, do: v * (-1), else: v end).()
   end
 
