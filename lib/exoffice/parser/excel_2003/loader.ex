@@ -2,7 +2,6 @@ defmodule Exoffice.Parser.Excel2003.Loader do
   alias Exoffice.Parser.Excel2003.OLE
   alias Exoffice.Parser.Excel2003.Cell
   alias Exoffice.Parser.Excel2003.String, as: ExofficeString
-  alias Xlsxir.{TableId, Worksheet, Index, SharedString}
   use Bitwise, only_operators: true
 
   # ParseXL definitions
@@ -37,21 +36,22 @@ defmodule Exoffice.Parser.Excel2003.Loader do
             document_summary_information: nil
 
   def load(path, sheet \\ nil) do
+    {:ok, pid} = Supervisor.start_child(Xlsxir, [])
     with {:ok, file}          <- File.open(path, [:read, :binary]),
          {:ok, ole}           <- :file.read(file, 8),
          true                 <- ole == OLE.identifier_ole,
          {:ok, binary}        <- File.read(path),
          {:ok, ole}           <- OLE.parse_blocks(binary),
-         loader               <- get_stream(ole),
-         {stream, _pos, excel} <- parse(loader.data, 0, %Exoffice.Parser.Excel2003{data_size: byte_size(loader.data)}),
+         loader               <- get_stream(ole, pid),
+         {stream, _pos, excel} <- parse(loader.data, 0, %Exoffice.Parser.Excel2003{data_size: byte_size(loader.data), pid: pid}),
          pids = parse_sheets(stream, excel, sheet) do
-         Enum.map(pids, fn {status, pid, _} -> {status, pid} end)
+         Enum.map(pids, fn {status, table_id, _} -> {status, {pid, table_id}} end)
     else
       {:error, reason} -> {:error, reason}
     end
   end
 
-  defp get_stream(ole) do
+  defp get_stream(ole, pid) do
     [data, summary_information, document_summary_information] = Enum.map([
       ole.workbook,
       ole.summary_information,
@@ -63,7 +63,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
         OLE.get_stream(ole, prop, prop.start_block, "")
     end)
 
-    Index.new
+    GenServer.call(pid, :index)
 
     %__MODULE__{
       data: data,
@@ -79,14 +79,13 @@ defmodule Exoffice.Parser.Excel2003.Loader do
       type == <<0>>
     end)
     |> Enum.map(fn sheet ->
-      Worksheet.new_multi
-      table_id = TableId.get
-      TableId.delete
+      table_id = GenServer.call(excel.pid, :worksheet)
       parse_sheet_part(stream, sheet.offset, excel, table_id)
       {:ok, table_id, excel}
     end)
-    Index.delete
-    SharedString.delete
+
+    GenServer.call(excel.pid, :rm_index)
+    GenServer.call(excel.pid, :rm_shared_strings)
     pids
   end
 
@@ -167,13 +166,13 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     # offset: 6; size: 4; index to SST record
     index = OLE.get_int_4d(record_data, 6)
 
-    value = SharedString.get_at(index)
+    value = GenServer.call(excel.pid, {:shared_strings, index})
     # add cell
     case :ets.match(pid, {row, :"$1"}) do
       [[cells]] ->
-        Worksheet.add_row(cells ++ [[column_string <> to_string(row), value]], row, pid)
+        GenServer.call(excel.pid, {:worksheet, cells ++ [[column_string <> to_string(row), value]], row})
       _ ->
-        Worksheet.add_row([[column_string <> to_string(row), value]], row, pid)
+        GenServer.call(excel.pid, {:worksheet, [[column_string <> to_string(row), value]], row})
     end
 
     parse_sheet_part(stream, pos + 4 + length, excel, pid)
@@ -195,9 +194,9 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     # add cell
     case :ets.match(pid, {row, :"$1"}) do
       [[cells]] ->
-        Worksheet.add_row(cells ++ [[column_string <> to_string(row), value]], row, pid)
+        GenServer.call(excel.pid, {:worksheet, cells ++ [[column_string <> to_string(row), value]], row})
       _ ->
-        Worksheet.add_row([[column_string <> to_string(row), value]], row, pid)
+        GenServer.call(excel.pid, {:worksheet, [[column_string <> to_string(row), value]], row})
     end
 
     parse_sheet_part(stream, pos + 4 + length, excel, pid)
@@ -217,9 +216,9 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     # add cell
     case :ets.match(pid, {row, :"$1"}) do
       [[cells]] ->
-        Worksheet.add_row(cells ++ [[column_string <> to_string(row), nil]], row, pid)
+        GenServer.call(excel.pid, {:worksheet, cells ++ [[column_string <> to_string(row), nil]], row})
       _ ->
-        Worksheet.add_row([[column_string <> to_string(row), nil]], row, pid)
+        GenServer.call(excel.pid, {:worksheet, [[column_string <> to_string(row), nil]], row})
     end
 
     parse_sheet_part(stream, pos + 4 + length, excel, pid)
@@ -389,8 +388,8 @@ defmodule Exoffice.Parser.Excel2003.Loader do
   end
 
   defp read_sst(stream, pos, excel) do
-    Index.new
-    SharedString.new
+    GenServer.call(excel.pid, :index)
+    GenServer.call(excel.pid, :shared_strings)
 
     # get spliced record data
     {record_data, splice_offsets, pos} = get_spliced_record_data(stream, pos, [0], <<>>, 1, @xls_type_continue)
@@ -467,8 +466,9 @@ defmodule Exoffice.Parser.Excel2003.Loader do
 
       pos = if has_asian, do: pos + extended_run_length, else: pos
 
-      SharedString.add_shared_string(ret_str, Index.get)
-      Index.increment_1
+      index = GenServer.call(excel.pid, :get_index)
+      GenServer.call(excel.pid, {:shared_strings, ret_str, index})
+      GenServer.call(excel.pid, :increment_1)
       pos
     end)
     |> Enum.into([])

@@ -2,6 +2,7 @@ defmodule Exoffice.Parser.Excel2003 do
   alias Exoffice.Parser.Excel2003.Loader
 
   defstruct sheets: [],
+            pid: nil,
             encryption: 0,
             version: nil,
             data_size: 0,
@@ -17,8 +18,8 @@ defmodule Exoffice.Parser.Excel2003 do
   ## Example
   Parse file `test.xls` in `./test/test_data`:
 
-  iex> [{:ok, pid1}, {:ok, pid2}] = Exoffice.Parser.Excel2003.parse("./test/test_data/test.xls")
-  iex> Enum.member?(:ets.all, pid1) && Enum.member?(:ets.all, pid2)
+  iex> [{:ok, {pid, table_id1}}, {:ok, {pid, table_id2}}] = Exoffice.Parser.Excel2003.parse("./test/test_data/test.xls")
+  iex> Enum.member?(:ets.all, table_id1) && Enum.member?(:ets.all, table_id2)
   true
 
   """
@@ -30,8 +31,8 @@ defmodule Exoffice.Parser.Excel2003 do
 
   ## Example
 
-  iex> {:ok, pid} = Exoffice.Parser.Excel2003.parse_sheet("./test/test_data/test.xls", 1)
-  iex> Enum.member?(:ets.all, pid)
+  iex> {:ok, {_pid, table_id}} = Exoffice.Parser.Excel2003.parse_sheet("./test/test_data/test.xls", 1)
+  iex> Enum.member?(:ets.all, table_id)
   true
 
   """
@@ -43,8 +44,8 @@ defmodule Exoffice.Parser.Excel2003 do
 
   ## Example
 
-  iex> {:ok, pid} = Exoffice.Parser.Excel2003.parse_sheet("./test/test_data/test.xls", 1)
-  iex> Exoffice.Parser.Excel2003.count_rows(pid)
+  iex> {:ok, {_pid, table_id}} = Exoffice.Parser.Excel2003.parse_sheet("./test/test_data/test.xls", 1)
+  iex> Exoffice.Parser.Excel2003.count_rows(table_id)
   10
 
   """
@@ -56,8 +57,8 @@ defmodule Exoffice.Parser.Excel2003 do
 
   ## Example
 
-  iex> {:ok, pid} = Exoffice.Parser.Excel2003.parse_sheet("./test/test_data/test.xls", 1)
-  iex> Exoffice.Parser.Excel2003.get_rows(pid) |> Enum.to_list
+  iex> {:ok, {_pid, table_id}} = Exoffice.Parser.Excel2003.parse_sheet("./test/test_data/test.xls", 1)
+  iex> Exoffice.Parser.Excel2003.get_rows(table_id) |> Enum.to_list
   [[23.0, 3.0, 12.0, 1.0, nil], [2.0, 12.0, 41.0, nil, nil],
   [nil, nil, nil, nil, nil], [nil, nil, nil, nil, nil],
   [nil, nil, nil, nil, nil], [nil, nil, nil, nil, nil],
@@ -75,14 +76,13 @@ defmodule Exoffice.Parser.Excel2003 do
 
   ## Example
 
-  iex> [{:ok, pid1}, {:ok, pid2}] = Exoffice.Parser.Excel2003.parse("./test/test_data/test.xls")
-  iex> Enum.member?(:ets.all, pid1) && Enum.member?(:ets.all, pid2)
+  iex> [{:ok, {pid, table_id1}}, {:ok, {pid, table_id2}}] = Exoffice.Parser.Excel2003.parse("./test/test_data/test.xls")
+  iex> Enum.member?(:ets.all, table_id1) && Enum.member?(:ets.all, table_id2)
   true
 
-  iex> [{:ok, pid1}, {:ok, pid2}] = Exoffice.Parser.Excel2003.parse("./test/test_data/test.xls")
-  iex> Exoffice.Parser.Excel2003.close(pid1)
-  iex> Exoffice.Parser.Excel2003.close(pid2)
-  iex> Enum.member?(:ets.all, pid1) || Enum.member?(:ets.all, pid2)
+  iex> [{:ok, {pid, table_id1}}, {:ok, {pid, table_id2}}] = Exoffice.Parser.Excel2003.parse("./test/test_data/test.xls")
+  iex> Exoffice.Parser.Excel2003.close(pid)
+  iex> Enum.member?(:ets.all, table_id1) || Enum.member?(:ets.all, table_id2)
   false
 
   """

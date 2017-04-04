@@ -18,12 +18,12 @@ defmodule Exoffice do
   ## Example
   Parse all worksheets in different files:
 
-      iex> [{:ok, pid1, _}, {:ok, pid2, _}] = Exoffice.parse("./test/test_data/test.xls")
-      iex> Enum.member?(:ets.all, pid1) && Enum.member?(:ets.all, pid2)
+      iex> [{:ok, {pid, table_id1}, _}, {:ok, {pid, table_id2}, _}] = Exoffice.parse("./test/test_data/test.xls")
+      iex> Enum.member?(:ets.all, table_id1) && Enum.member?(:ets.all, table_id2)
       true
 
-      iex> [{:ok, pid1, _}, {:ok, pid2, _}] = Exoffice.parse("./test/test_data/test.xlsx")
-      iex> Enum.member?(:ets.all, pid1) && Enum.member?(:ets.all, pid2)
+      iex> [{:ok, {pid, table_id1}, _}, {:ok, {pid, table_id2}, _}] = Exoffice.parse("./test/test_data/test.xlsx")
+      iex> Enum.member?(:ets.all, table_id1) && Enum.member?(:ets.all, table_id2)
       true
 
       iex> [{:ok, pid, _}] = Exoffice.parse("./test/test_data/test.csv")
@@ -72,12 +72,12 @@ defmodule Exoffice do
 
   ## Example
 
-      iex> [{:ok, pid1, parser1}, {:ok, _pid2, _parser2}] = Exoffice.parse("./test/test_data/test.xls")
-      iex> Exoffice.get_rows(pid1, parser1) |> Enum.count
+      iex> [{:ok, {pid, table_id1}, parser1}, {:ok, {pid, _table_id2}, _parser2}] = Exoffice.parse("./test/test_data/test.xls")
+      iex> Exoffice.get_rows(table_id1, parser1) |> Enum.count
       23
 
-      iex> [{:ok, pid1, parser1}, {:ok, _pid2, _parser2}] = Exoffice.parse("./test/test_data/test.xlsx")
-      iex> Exoffice.get_rows(pid1, parser1) |> Enum.count
+      iex> [{:ok, {pid, table_id1}, parser1}, {:ok, {pid, _}, _parser2}] = Exoffice.parse("./test/test_data/test.xlsx")
+      iex> Exoffice.get_rows(table_id1, parser1) |> Enum.count
       23
 
       iex> [{:ok, pid, parser}] = Exoffice.parse("./test/test_data/test.csv")
@@ -97,16 +97,14 @@ defmodule Exoffice do
   - `parser` - is a module, used for parsing a file, returned with pid after parsing
 
   ## Example
-      iex> [{:ok, pid1, parser1}, {:ok, pid2, parser2}] = Exoffice.parse("./test/test_data/test.xls")
-      iex> Exoffice.close(pid1, parser1)
-      iex> Exoffice.close(pid2, parser2)
-      iex> Enum.member?(:ets.all, pid1) || Enum.member?(:ets.all, pid2)
+      iex> [{:ok, {pid, table_id1}, parser1}, {:ok, {pid, table_id2}, _}] = Exoffice.parse("./test/test_data/test.xls")
+      iex> Exoffice.close(pid, parser1)
+      iex> Enum.member?(:ets.all, table_id1) || Enum.member?(:ets.all, table_id2)
       false
 
-      iex> [{:ok, pid1, parser1}, {:ok, pid2, parser2}] = Exoffice.parse("./test/test_data/test.xlsx")
-      iex> Exoffice.close(pid1, parser1)
-      iex> Exoffice.close(pid2, parser2)
-      iex> Enum.member?(:ets.all, pid1) || Enum.member?(:ets.all, pid2)
+      iex> [{:ok, {pid, table_id1}, parser1}, {:ok, {pid, table_id2}, _parser2}] = Exoffice.parse("./test/test_data/test.xlsx")
+      iex> Exoffice.close(pid, parser1)
+      iex> Enum.member?(:ets.all, table_id1) || Enum.member?(:ets.all, table_id2)
       false
 
       iex> [{:ok, pid, parser}] = Exoffice.parse("./test/test_data/test.csv")
@@ -127,12 +125,12 @@ defmodule Exoffice do
   - `parser` - is a module, used for parsing a file, returned with pid after parsing
 
   ## Example
-      iex> [{:ok, pid1, parser1}, {:ok, pid2, parser2}] = Exoffice.parse("./test/test_data/test.xls")
-      iex> [Exoffice.count_rows(pid1, parser1), Exoffice.count_rows(pid2, parser2)]
+      iex> [{:ok, {pid, table_id1}, parser1}, {:ok, {pid, table_id2}, parser2}] = Exoffice.parse("./test/test_data/test.xls")
+      iex> [Exoffice.count_rows(table_id1, parser1), Exoffice.count_rows(table_id2, parser2)]
       [23,10]
 
-      iex> [{:ok, pid1, parser1}, {:ok, pid2, parser2}] = Exoffice.parse("./test/test_data/test.xlsx")
-      iex> [Exoffice.count_rows(pid1, parser1), Exoffice.count_rows(pid2, parser2)]
+      iex> [{:ok, {pid, table_id1}, parser1}, {:ok, {pid, table_id2}, parser2}] = Exoffice.parse("./test/test_data/test.xlsx")
+      iex> [Exoffice.count_rows(table_id1, parser1), Exoffice.count_rows(table_id2, parser2)]
       [23,10]
 
       iex> [{:ok, pid, parser}] = Exoffice.parse("./test/test_data/test.csv")
