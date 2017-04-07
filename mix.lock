@@ -6,4 +6,4 @@
   "iconv": {:hex, :iconv, "1.0.2", "a0792f06ab4b5ea1b5bb49789405739f1281a91c44cf3879cb70e4d777666217", [:rebar3], [{:p1_utils, "1.0.5", [hex: :p1_utils, optional: false]}]},
   "p1_utils": {:hex, :p1_utils, "1.0.5", "3e698354fdc1fea5491d991457b0cb986c0a00a47d224feb841dc3ec82b9f721", [:rebar3], []},
   "parallel_stream": {:hex, :parallel_stream, "1.0.5", "4c78d3e675f9eff885cbe252c89a8fc1d2fb803c0d03a914281e587834e09431", [:mix], []},
-  "xlsxir": {:hex, :xlsxir, "1.4.1", "97288b6a58810fa4b213738438b2258528f1977bf15bd2e9feef615cdfa9e022", [:mix], [{:erlsom, "~> 1.4", [hex: :erlsom, optional: false]}]}}
+  "xlsxir": {:git, "https://github.com/alexkovalevych/xlsxir.git", "cc86a82f2e2c9b709b6e72116192bb54761ce328", [branch: "performance-boost"]}}

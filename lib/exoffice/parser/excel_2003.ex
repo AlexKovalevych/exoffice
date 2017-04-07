@@ -7,6 +7,9 @@ defmodule Exoffice.Parser.Excel2003 do
             data_size: 0,
             codepage: nil,
             base_date: 1900,
+            shared_strings_tid: nil,
+            styles_tid: nil,
+            index: 0,
             pids: []
 
   @behaviour Exoffice.Parser
