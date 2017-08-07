@@ -3,7 +3,6 @@
   "erlsom": {:hex, :erlsom, "1.4.1", "53dbacf35adfea6f0714fd0e4a7b0720d495e88c5e24e12c5dc88c7b62bd3e49", [:rebar3], []},
   "ex_doc": {:hex, :ex_doc, "0.14.4", "a0a79a6896075814f4bc6802b74ccbed6549f47cc5ab34c71eaee2303170b8ef", [:mix], [{:earmark, "~> 1.0", [hex: :earmark, optional: false]}]},
   "fast_xml": {:hex, :fast_xml, "1.1.15", "6d23eb7f874e1357cf80a48d75a7bd0c8f6318029dc4b70122e9f54911f57f83", [:rebar3], [{:p1_utils, "1.0.5", [hex: :p1_utils, optional: false]}]},
-  "iconv": {:hex, :iconv, "1.0.2", "a0792f06ab4b5ea1b5bb49789405739f1281a91c44cf3879cb70e4d777666217", [:rebar3], [{:p1_utils, "1.0.5", [hex: :p1_utils, optional: false]}]},
   "p1_utils": {:hex, :p1_utils, "1.0.5", "3e698354fdc1fea5491d991457b0cb986c0a00a47d224feb841dc3ec82b9f721", [:rebar3], []},
   "parallel_stream": {:hex, :parallel_stream, "1.0.5", "4c78d3e675f9eff885cbe252c89a8fc1d2fb803c0d03a914281e587834e09431", [:mix], []},
   "xlsxir": {:hex, :xlsxir, "1.4.1", "97288b6a58810fa4b213738438b2258528f1977bf15bd2e9feef615cdfa9e022", [:mix], [{:erlsom, "~> 1.4", [hex: :erlsom, optional: false]}]}}
