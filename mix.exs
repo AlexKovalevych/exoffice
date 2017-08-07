@@ -17,7 +17,7 @@ defmodule Exoffice.Mixfile do
   #
   # Type "mix help compile.app" for more information
   def application do
-    [applications: [:logger, :iconv]]
+    [applications: [:logger]]
   end
 
   defp description do
@@ -42,7 +42,6 @@ defmodule Exoffice.Mixfile do
       {:csv, "~> 1.4"},
       {:ex_doc, "~> 0.14.4"},
       {:earmark, "~> 1.0"},
-      #{:iconv, "~> 1.0"},
       {:codepagex, "~> 0.1.4"}
     ]
   end
