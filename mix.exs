@@ -41,8 +41,7 @@ defmodule Exoffice.Mixfile do
       {:xlsxir, github: "alexkovalevych/xlsxir", branch: "performance-boost"},
       {:csv, "~> 1.4"},
       {:ex_doc, "~> 0.14.4"},
-      {:earmark, "~> 1.0"},
-      {:codepagex, "~> 0.1.4"}
+      {:earmark, "~> 1.0"}
     ]
   end
 
