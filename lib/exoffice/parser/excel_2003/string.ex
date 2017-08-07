@@ -39,7 +39,7 @@ defmodule Exoffice.Parser.Excel2003.String do
   end
 
   def encode_utf_16(string, false) do
-    convert_encoding(string, :"VENDORS/MISC/KPS9566", "UTF-8")
+    convert_encoding(string, "UTF-16LE", "UTF-8")
   end
 
   def encode_utf_16(string, true) do
@@ -72,9 +72,8 @@ defmodule Exoffice.Parser.Excel2003.String do
     convert_encoding(string, codepage, "UTF-8")
   end
 
-  def convert_encoding(value, from, _to) do
-    IO.puts "from: #{from} - #{inspect value}"
-    Codepagex.to_string!(value, from)
+  def convert_encoding(value, _from, _to) do
+    :unicode.characters_to_binary(value, {:utf16, :little})
   end
 
   defp decode_utf_16(str, bom_be \\ true) do
