@@ -8,8 +8,8 @@ defmodule Exoffice.Mixfile do
      elixir: "~> 1.3",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
-     description: description,
-     package: package,
+     description: description(),
+     package: package(),
      deps: deps()]
   end
 
@@ -42,7 +42,8 @@ defmodule Exoffice.Mixfile do
       {:csv, "~> 1.4"},
       {:ex_doc, "~> 0.14.4"},
       {:earmark, "~> 1.0"},
-      {:iconv, "~> 1.0"}
+      #{:iconv, "~> 1.0"},
+      {:codepagex, "~> 0.1.4"}
     ]
   end
 
