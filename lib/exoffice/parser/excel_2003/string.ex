@@ -39,7 +39,7 @@ defmodule Exoffice.Parser.Excel2003.String do
   end
 
   def encode_utf_16(string, false) do
-    convert_encoding(string, "UTF-16LE", "UTF-8")
+    convert_encoding(string, :"VENDORS/MISC/KPS9566", "UTF-8")
   end
 
   def encode_utf_16(string, true) do
