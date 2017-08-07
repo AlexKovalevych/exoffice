@@ -73,7 +73,7 @@ defmodule Exoffice.Parser.Excel2003.String do
   end
 
   def convert_encoding(value, from, _to) do
-    IO.puts "#{inspect value}"
+    IO.puts "from: #{from} - #{inspect value}"
     Codepagex.to_string!(value, from)
   end
 
