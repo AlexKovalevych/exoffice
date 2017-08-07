@@ -74,7 +74,7 @@ defmodule Exoffice.Parser.Excel2003.String do
 
   def convert_encoding(value, from, _to) do
     #:iconv.convert(from, to, value)
-    Codepagex.from_string!(value, from)
+    Codepagex.to_string!(value, from)
   end
 
   defp decode_utf_16(str, bom_be \\ true) do
