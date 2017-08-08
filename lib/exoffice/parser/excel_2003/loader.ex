@@ -458,6 +458,11 @@ defmodule Exoffice.Parser.Excel2003.Loader do
             # index to font record
             font_index = OLE.get_int_2d(record_data, pos + 2 + i * 4)
 
+            acc = case acc do
+              0 -> [0]
+              _ -> acc
+            end 
+            
             acc ++ [[char_pos, font_index]]
           end)
           {fmt_runs, pos + 4 * formatting_runs}
