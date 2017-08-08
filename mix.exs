@@ -17,7 +17,7 @@ defmodule Exoffice.Mixfile do
   #
   # Type "mix help compile.app" for more information
   def application do
-    [applications: [:logger, :iconv]]
+    [applications: [:logger]]
   end
 
   defp description do
@@ -38,11 +38,10 @@ defmodule Exoffice.Mixfile do
   # Type "mix help deps" for more examples and options
   defp deps do
     [
-      {:xlsxir, "~> 1.4"},
+      {:xlsxir, github: "alexkovalevych/xlsxir", branch: "performance-boost"},
       {:csv, "~> 1.4"},
       {:ex_doc, "~> 0.14.4"},
-      {:earmark, "~> 1.0"},
-      {:iconv, "~> 1.0"}
+      {:earmark, "~> 1.0"}
     ]
   end
 

@@ -2,7 +2,8 @@ defmodule Exoffice.Parser.Excel2003.Loader do
   alias Exoffice.Parser.Excel2003.OLE
   alias Exoffice.Parser.Excel2003.Cell
   alias Exoffice.Parser.Excel2003.String, as: ExofficeString
-  alias Xlsxir.{TableId, Worksheet, Index, SharedString}
+  alias Exoffice.Parser.Excel2003
+  #alias Xlsxir.{TableId, Worksheet, Index, SharedString}
   use Bitwise, only_operators: true
 
   # ParseXL definitions
@@ -43,12 +44,19 @@ defmodule Exoffice.Parser.Excel2003.Loader do
          {:ok, binary}        <- File.read(path),
          {:ok, ole}           <- OLE.parse_blocks(binary),
          loader               <- get_stream(ole),
-         {stream, _pos, excel} <- parse(loader.data, 0, %Exoffice.Parser.Excel2003{data_size: byte_size(loader.data)}),
+         {stream, _pos, excel} <- parse(loader.data, 0, create_excel_2003(loader)),
          pids = parse_sheets(stream, excel, sheet) do
          Enum.map(pids, fn {status, pid, _} -> {status, pid} end)
     else
       {:error, reason} -> {:error, reason}
     end
+  end
+
+  defp create_excel_2003(loader) do
+    %Exoffice.Parser.Excel2003{
+      data_size: byte_size(loader.data),
+      shared_strings_tid: GenServer.call(Xlsxir.StateManager, :new_table)
+    }
   end
 
   defp get_stream(ole) do
@@ -63,8 +71,6 @@ defmodule Exoffice.Parser.Excel2003.Loader do
         OLE.get_stream(ole, prop, prop.start_block, "")
     end)
 
-    Index.new
-
     %__MODULE__{
       data: data,
       summary_information: summary_information,
@@ -72,53 +78,48 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     }
   end
 
-  defp parse_sheets(stream, excel, sheet) do
+  defp parse_sheets(stream, %Excel2003{shared_strings_tid: shared_strings_tid} = excel, sheet) do
     sheets = if is_nil(sheet), do: excel.sheets, else: [Enum.at(excel.sheets, sheet)]
-    pids = sheets
+    tids = sheets
     |> Enum.filter(fn %{sheet_type: type} ->
       type == <<0>>
     end)
     |> Enum.map(fn sheet ->
-      Worksheet.new_multi
-      table_id = TableId.get
-      TableId.delete
-      parse_sheet_part(stream, sheet.offset, excel, table_id)
-      {:ok, table_id, excel}
+      sheet_tid = GenServer.call(Xlsxir.StateManager, :new_table)
+      parse_sheet_part(stream, sheet.offset, excel, sheet.offset_end, sheet_tid)
+      {:ok, sheet_tid, excel}
     end)
-    Index.delete
-    SharedString.delete
-    pids
+    :ets.delete(shared_strings_tid)
+    tids
   end
 
-  def parse_sheet_part(stream, pos, excel) do
-    {stream, pos, excel}
-  end
-
-  def parse_sheet_part(stream, pos, excel, table_id) when (byte_size(stream) > pos) do
+  def parse_sheet_part(stream, pos, excel, offset_end, sheet_tid) when (byte_size(stream) > pos) do
     code = OLE.get_int_2d(stream, pos)
+
     case code do
-      @xls_type_bof -> read_bof(stream, pos, excel, :parse_sheet_part, table_id)
-      @xls_type_labelsst -> read_label_sst(stream, pos, excel, table_id)
-      @xls_type_number -> read_number(stream, pos, excel, table_id)
-      @xls_type_blank -> read_blank(stream, pos, excel, table_id)
-      @xls_type_eof -> read_default(stream, pos, excel, :parse_sheet_part, nil)
-      _ -> read_default(stream, pos, excel, :parse_sheet_part, table_id)
+      @xls_type_bof -> read_bof(stream, pos, excel, offset_end, :parse_sheet_part, sheet_tid)
+      @xls_type_labelsst -> read_label_sst(stream, pos, excel, offset_end, sheet_tid)
+      @xls_type_number -> read_number(stream, pos, excel, offset_end, sheet_tid)
+      @xls_type_blank -> read_blank(stream, pos, excel, offset_end, sheet_tid)
+      @xls_type_eof -> read_eof(stream, pos, excel)
+      _ -> read_default(stream, pos, excel, offset_end, :parse_sheet_part, sheet_tid)
     end
   end
 
-  def parse_sheet_part(stream, pos, excel, _table_id) do
+  def parse_sheet_part(stream, pos, excel, _, _) do
     {stream, pos, excel}
   end
 
   def parse(stream, pos, excel) when (byte_size(stream) - 4 > pos) do
     code = OLE.get_int_2d(stream, pos)
+
     case code do
       @xls_type_bof -> read_bof(stream, pos, excel)
       @xls_type_sheet -> read_sheet(stream, pos, excel)
       @xls_type_codepage -> read_codepage(stream, pos, excel)
       @xls_type_datemode -> read_datemode(stream, pos, excel)
       @xls_type_sst -> read_sst(stream, pos, excel)
-      _ -> read_default(stream, pos, excel)
+      _ -> read_default(stream, pos, excel, nil)
     end
   end
 
@@ -126,7 +127,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     {stream, pos, excel}
   end
 
-  def read_bof(stream, pos, excel, fun \\ :parse, pid \\ nil) do
+  def read_bof(stream, pos, excel, offset_end \\ nil, fun \\ :parse, tid \\ nil) do
     length = OLE.get_int_2d(stream, pos + 2)
     record_data = binary_part(stream, pos + 4, length)
 
@@ -145,7 +146,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
       @xls_worksheet ->
         # do not use this version information for anything
         # it is unreliable (OpenOffice doc, 5.8), use only version information from the global stream
-        apply(__MODULE__, fun, (if pid, do: [stream, new_pos, excel, pid], else: [stream, new_pos, excel]))
+        apply(__MODULE__, fun, (if fun == :parse, do: [stream, new_pos, excel], else: [stream, new_pos, excel, offset_end, tid]))
       _ ->
         # substream, e.g. chart
         # just skip the entire substream
@@ -153,7 +154,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     end
   end
 
-  def read_label_sst(stream, pos, excel, pid) do
+  def read_label_sst(stream, pos, %Excel2003{shared_strings_tid: tid} = excel, offset_end, sheet_tid) do
     length = OLE.get_int_2d(stream, pos + 2)
     record_data = read_record_data(stream, pos + 4, length)
 
@@ -167,19 +168,19 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     # offset: 6; size: 4; index to SST record
     index = OLE.get_int_4d(record_data, 6)
 
-    value = SharedString.get_at(index)
+    value = get_shared_string(tid, index)
     # add cell
-    case :ets.match(pid, {row, :"$1"}) do
+    case :ets.match(sheet_tid, {row, :"$1"}) do
       [[cells]] ->
-        Worksheet.add_row(cells ++ [[column_string <> to_string(row), value]], row, pid)
+        :ets.insert(sheet_tid, {row, cells ++ [[column_string <> to_string(row), value]]})
       _ ->
-        Worksheet.add_row([[column_string <> to_string(row), value]], row, pid)
+        :ets.insert(sheet_tid, {row, [[column_string <> to_string(row), value]]})
     end
 
-    parse_sheet_part(stream, pos + 4 + length, excel, pid)
+    parse_sheet_part(stream, pos + 4 + length, excel, offset_end, sheet_tid)
   end
 
-  def read_number(stream, pos, excel, pid) do
+  def read_number(stream, pos, excel, offset_end, sheet_tid) do
     length = OLE.get_int_2d(stream, pos + 2)
     record_data = read_record_data(stream, pos + 4, length)
 
@@ -193,17 +194,17 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     value = extract_number(binary_part(record_data, 6, 8))
 
     # add cell
-    case :ets.match(pid, {row, :"$1"}) do
+    case :ets.match(sheet_tid, {row, :"$1"}) do
       [[cells]] ->
-        Worksheet.add_row(cells ++ [[column_string <> to_string(row), value]], row, pid)
+        :ets.insert(sheet_tid, {row, cells ++ [[column_string <> to_string(row), value]]})
       _ ->
-        Worksheet.add_row([[column_string <> to_string(row), value]], row, pid)
+        :ets.insert(sheet_tid, {row, [[column_string <> to_string(row), value]]})
     end
 
-    parse_sheet_part(stream, pos + 4 + length, excel, pid)
+    parse_sheet_part(stream, pos + 4 + length, excel, offset_end, sheet_tid)
   end
 
-  def read_blank(stream, pos, excel, pid) do
+  def read_blank(stream, pos, excel, offset_end, sheet_tid) do
     length = OLE.get_int_2d(stream, pos + 2)
     record_data = read_record_data(stream, pos + 4, length)
 
@@ -215,14 +216,14 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     column_string = Cell.string_from_column_index(column)
 
     # add cell
-    case :ets.match(pid, {row, :"$1"}) do
+    case :ets.match(sheet_tid, {row, :"$1"}) do
       [[cells]] ->
-        Worksheet.add_row(cells ++ [[column_string <> to_string(row), nil]], row, pid)
+        :ets.insert(sheet_tid, {row, cells ++ [[column_string <> to_string(row), nil]]})
       _ ->
-        Worksheet.add_row([[column_string <> to_string(row), nil]], row, pid)
+        :ets.insert(sheet_tid, {row, [[column_string <> to_string(row), nil]]})
     end
 
-    parse_sheet_part(stream, pos + 4 + length, excel, pid)
+    parse_sheet_part(stream, pos + 4 + length, excel, offset_end, sheet_tid)
   end
 
   defp extract_number(data) do
@@ -370,7 +371,8 @@ defmodule Exoffice.Parser.Excel2003.Loader do
         |> ExofficeString.read_byte_string_short(excel.codepage)
     end
 
-    sheet = %{name: rec_name.value, offset: rec_offset, sheet_state: sheet_state, sheet_type: sheet_type}
+    offset_end = rec_offset + length
+    sheet = %{name: rec_name.value, offset: rec_offset, sheet_state: sheet_state, sheet_type: sheet_type, offset_end: offset_end}
     parse(stream, pos + length + 4, %{excel | sheets: excel.sheets ++ [sheet]})
   end
 
@@ -388,17 +390,14 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     {data, splice_offsets, pos}
   end
 
-  defp read_sst(stream, pos, excel) do
-    Index.new
-    SharedString.new
-
+  defp read_sst(stream, pos, %Excel2003{shared_strings_tid: tid} = excel) do
     # get spliced record data
     {record_data, splice_offsets, pos} = get_spliced_record_data(stream, pos, [0], <<>>, 1, @xls_type_continue)
 
     nm = OLE.get_int_4d(record_data, 4)
 
     0..nm - 1
-    |> Stream.scan(8, fn _, pos ->
+    |> Stream.scan({8, 0}, fn _, {pos, index} ->
       {num_chars, pos} = {OLE.get_int_2d(record_data, pos), pos + 2}
       {option_flags, pos} = {OLE.decoded_binary_at(record_data, pos), pos + 1}
 
@@ -459,6 +458,11 @@ defmodule Exoffice.Parser.Excel2003.Loader do
             # index to font record
             font_index = OLE.get_int_2d(record_data, pos + 2 + i * 4)
 
+            acc = case acc do
+              0 -> [0]
+              _ -> acc
+            end 
+            
             acc ++ [[char_pos, font_index]]
           end)
           {fmt_runs, pos + 4 * formatting_runs}
@@ -467,9 +471,8 @@ defmodule Exoffice.Parser.Excel2003.Loader do
 
       pos = if has_asian, do: pos + extended_run_length, else: pos
 
-      SharedString.add_shared_string(ret_str, Index.get)
-      Index.increment_1
-      pos
+      :ets.insert(tid, {index, ret_str})
+      {pos, index + 1}
     end)
     |> Enum.into([])
     parse(stream, pos, excel)
@@ -525,12 +528,20 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     binary_part(binary, pos, length)
   end
 
-  defp read_default(stream, pos, excel, fun \\ :parse, pid \\ nil) do
+  defp read_default(stream, pos, excel, offset_end, fun \\ :parse, sheet_tid \\ nil) do
     length = OLE.get_int_2d(stream, pos + 2)
 
     # move stream pointer to next record
     new_pos = pos + length + 4
-    apply(__MODULE__, fun, (if pid, do: [stream, new_pos, excel, pid], else: [stream, new_pos, excel]))
+    apply(__MODULE__, fun, (if fun == :parse, do: [stream, new_pos, excel], else: [stream, new_pos, excel, offset_end, sheet_tid]))
+  end
+
+  defp read_eof(stream, pos, excel), do: {stream, pos, excel}
+
+  defp get_shared_string(tid, index) do
+    :ets.lookup(tid, index)
+    |> List.first
+    |> elem(1)
   end
 
 end
