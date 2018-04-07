@@ -18,6 +18,7 @@ defmodule Exoffice do
   ## Example
   Parse all worksheets in different files:
 
+      iex> Application.start(:xlsxir)
       iex> [{:ok, pid1, _}, {:ok, pid2, _}] = Exoffice.parse("./test/test_data/test.xls")
       iex> Enum.member?(:ets.all, pid1) && Enum.member?(:ets.all, pid2)
       true
@@ -33,15 +34,20 @@ defmodule Exoffice do
   """
   def parse(path, sheet \\ nil) do
     config = Application.get_env(:exoffice, __MODULE__, [])
-    parsers = case config[:parsers] do
-      nil -> []
-      parsers -> parsers
-    end
+
+    parsers =
+      case config[:parsers] do
+        nil -> []
+        parsers -> parsers
+      end
+
     parsers = parsers ++ @default_parsers
     extension = Path.extname(path)
-    parser = Enum.reduce_while(parsers, nil, fn parser, acc ->
-      if Enum.member?(parser.extensions, extension), do: {:halt, parser}, else: {:cont, acc}
-    end)
+
+    parser =
+      Enum.reduce_while(parsers, nil, fn parser, acc ->
+        if Enum.member?(parser.extensions, extension), do: {:halt, parser}, else: {:cont, acc}
+      end)
 
     if is_nil(parser) do
       {:error, "No parser for this file"}
@@ -49,12 +55,15 @@ defmodule Exoffice do
       case is_nil(sheet) do
         true ->
           pids = parser.parse(path)
+
           Enum.map(pids, fn
             {:ok, pid} -> {:ok, pid, parser}
             {:error, reason} -> {:error, reason}
           end)
+
         false ->
           result = parser.parse_sheet(path, sheet)
+
           case result do
             {:ok, pid} -> {:ok, pid, parser}
             _ -> result
@@ -72,6 +81,7 @@ defmodule Exoffice do
 
   ## Example
 
+      iex> Application.start(:xlsxir)
       iex> [{:ok, pid1, parser1}, {:ok, _pid2, _parser2}] = Exoffice.parse("./test/test_data/test.xls")
       iex> Exoffice.get_rows(pid1, parser1) |> Enum.count
       23
@@ -97,6 +107,7 @@ defmodule Exoffice do
   - `parser` - is a module, used for parsing a file, returned with pid after parsing
 
   ## Example
+      iex> Application.start(:xlsxir)
       iex> [{:ok, pid1, parser1}, {:ok, pid2, parser2}] = Exoffice.parse("./test/test_data/test.xls")
       iex> Exoffice.close(pid1, parser1)
       iex> Exoffice.close(pid2, parser2)
@@ -127,6 +138,7 @@ defmodule Exoffice do
   - `parser` - is a module, used for parsing a file, returned with pid after parsing
 
   ## Example
+      iex> Application.start(:xlsxir)
       iex> [{:ok, pid1, parser1}, {:ok, pid2, parser2}] = Exoffice.parse("./test/test_data/test.xls")
       iex> [Exoffice.count_rows(pid1, parser1), Exoffice.count_rows(pid2, parser2)]
       [23,10]
@@ -143,5 +155,4 @@ defmodule Exoffice do
   def count_rows(pid, parser) do
     parser.count_rows(pid)
   end
-
 end

@@ -20,10 +20,10 @@ defmodule Exoffice.Parser.Excel2003.String do
     is_compressed = !((0x01 &&& OLE.decoded_binary_at(data, 0)) >>> 0)
 
     # bit: 2; mask: 0x04; Asian phonetic settings
-    has_asian = (0x04) &&& OLE.decoded_binary_at(data, 0) >>> 2
+    has_asian = 0x04 &&& OLE.decoded_binary_at(data, 0) >>> 2
 
     # bit: 3; mask: 0x08; Rich-Text settings
-    has_rich_text = (0x08) &&& OLE.decoded_binary_at(data, 0) >>> 3
+    has_rich_text = 0x08 &&& OLE.decoded_binary_at(data, 0) >>> 3
 
     # offset: 1: size: var; character array
     # this offset assumes richtext and Asian phonetic settings are off which is generally wrong
@@ -50,7 +50,8 @@ defmodule Exoffice.Parser.Excel2003.String do
 
   defp uncompress_byte_string(string) do
     str_len = byte_size(string)
-    Enum.reduce(0..str_len - 1, <<>>, fn i, acc ->
+
+    Enum.reduce(0..(str_len - 1), <<>>, fn i, acc ->
       acc <> binary_part(string, i, 1) <> "\0"
     end)
   end
@@ -64,7 +65,8 @@ defmodule Exoffice.Parser.Excel2003.String do
 
     %__MODULE__{
       value: value,
-      size: 1 + ln # size in bytes of data structure
+      # size in bytes of data structure
+      size: 1 + ln
     }
   end
 
@@ -78,21 +80,29 @@ defmodule Exoffice.Parser.Excel2003.String do
 
   defp decode_utf_16(str, bom_be \\ true) do
     case byte_size(str) < 2 do
-      true -> str
+      true ->
+        str
+
       false ->
         c0 = OLE.decoded_binary_at(str, 0)
         c1 = OLE.decoded_binary_at(str, 1)
-        {str, bom_be} = cond do
-          c0 == 0xfe && c1 == 0xff -> {binary_part(str, 2, byte_size(str) - 2), bom_be}
-          c0 == 0xff && c1 == 0xfe -> {binary_part(str, 2, byte_size(str) - 2), false}
-          true -> {str, bom_be}
-        end
-        len = byte_size(str)
-        Enum.reduce(0..len - 1, "", fn i, acc ->
-          val = case bom_be do
-            true -> (OLE.decoded_binary_at(str, i) <<< 4) <> OLE.decoded_binary_at(str, i + 1)
-            false -> (OLE.decoded_binary_at(str, i + 1) <<< 4) <> OLE.decoded_binary_at(str, i)
+
+        {str, bom_be} =
+          cond do
+            c0 == 0xFE && c1 == 0xFF -> {binary_part(str, 2, byte_size(str) - 2), bom_be}
+            c0 == 0xFF && c1 == 0xFE -> {binary_part(str, 2, byte_size(str) - 2), false}
+            true -> {str, bom_be}
           end
+
+        len = byte_size(str)
+
+        Enum.reduce(0..(len - 1), "", fn i, acc ->
+          val =
+            case bom_be do
+              true -> (OLE.decoded_binary_at(str, i) <<< 4) <> OLE.decoded_binary_at(str, i + 1)
+              false -> (OLE.decoded_binary_at(str, i + 1) <<< 4) <> OLE.decoded_binary_at(str, i)
+            end
+
           acc <> if val == 0x228, do: "\n", else: val
         end)
     end

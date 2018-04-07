@@ -1,5 +1,4 @@
 defmodule Exoffice.Parser.CSV do
-
   @behaviour Exoffice.Parser
 
   def extensions, do: [".csv"]
@@ -13,15 +12,18 @@ defmodule Exoffice.Parser.CSV do
   """
   def parse(path, options \\ []) do
     stream = File.stream!(path) |> CSV.decode(options)
+
     case Agent.start_link(fn -> stream end, name: String.to_atom(path)) do
-        {:ok, pid} -> [{:ok, pid}]
+      {:ok, pid} ->
+        [{:ok, pid}]
 
-        # Reoped previously opened file
-        {:error, {:already_started, pid}} ->
-          close(pid)
-          parse(path, options)
+      # Reoped previously opened file
+      {:error, {:already_started, pid}} ->
+        close(pid)
+        parse(path, options)
 
-        {:error, reason} -> [{:error, reason}]
+      {:error, reason} ->
+        [{:error, reason}]
     end
   end
 
@@ -35,7 +37,7 @@ defmodule Exoffice.Parser.CSV do
 
   """
   def parse_sheet(path, _, options \\ []) do
-    parse(path, options) |> List.first
+    parse(path, options) |> List.first()
   end
 
   @doc """
@@ -73,7 +75,7 @@ defmodule Exoffice.Parser.CSV do
 
   """
   def get_rows(pid) do
-    Agent.get(pid, &(&1))
+    Agent.get(pid, & &1)
   end
 
   @doc """
@@ -93,5 +95,4 @@ defmodule Exoffice.Parser.CSV do
   def close(pid) do
     if Process.alive?(pid), do: Agent.stop(pid), else: :ok
   end
-
 end

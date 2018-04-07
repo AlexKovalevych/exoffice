@@ -16,33 +16,33 @@ defmodule Exoffice.Parser.Excel2003.OLE do
             workbook: nil,
             root_entry: nil
 
-  @identifier_ole <<0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1>>
+  @identifier_ole <<0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1>>
 
   # Size of a sector = 512 bytes
-  @big_block_size                 0x200
+  @big_block_size 0x200
 
   # Size of a short sector = 64 bytes
-  @small_block_size               0x40
+  @small_block_size 0x40
 
   # Size of a directory entry always = 128 bytes
-  @property_storage_block_size    0x80
+  @property_storage_block_size 0x80
 
   # Minimum size of a standard stream = 4096 bytes, streams smaller than this are stored as short streams
-  @small_block_threshold          0x1000
+  @small_block_threshold 0x1000
 
   # header offsets
-  @num_big_block_depot_blocks_pos 0x2c
-  @root_start_block_pos           0x30
-  @small_block_depot_block_pos    0x3c
-  @extension_block_pos            0x44
-  @num_extension_block_pos        0x48
-  @big_block_depot_blocks_pos     0x4c
+  @num_big_block_depot_blocks_pos 0x2C
+  @root_start_block_pos 0x30
+  @small_block_depot_block_pos 0x3C
+  @extension_block_pos 0x44
+  @num_extension_block_pos 0x48
+  @big_block_depot_blocks_pos 0x4C
 
   # property storage offsets (directory offsets)
-  @size_of_name_pos               0x40
-  @type_pos                       0x42
-  @start_block_pos                0x74
-  @size_pos                       0x78
+  @size_of_name_pos 0x40
+  @type_pos 0x42
+  @start_block_pos 0x74
+  @size_pos 0x78
 
   def identifier_ole, do: @identifier_ole
 
@@ -53,22 +53,29 @@ defmodule Exoffice.Parser.Excel2003.OLE do
   def get_stream(ole, prop, block, stream) do
     case prop.size < @small_block_threshold do
       true ->
-        root_data = read_data(
-          ole.binary,
-          "",
-          Enum.at(ole.props, ole.root_entry).start_block,
-          ole.big_block_chain
-        )
+        root_data =
+          read_data(
+            ole.binary,
+            "",
+            Enum.at(ole.props, ole.root_entry).start_block,
+            ole.big_block_chain
+          )
+
         pos = block * @small_block_size
         new_stream = stream <> binary_part(root_data, pos, @small_block_size)
         get_stream(ole, prop, get_int_4d(ole.small_block_chain, block * 4), new_stream)
+
       false ->
-        num_blocks = case rem(prop.size, @big_block_size) == 0 do
-          true -> prop.size / @big_block_size
-          false -> prop.size / @big_block_size + 1
-        end
+        num_blocks =
+          case rem(prop.size, @big_block_size) == 0 do
+            true -> prop.size / @big_block_size
+            false -> prop.size / @big_block_size + 1
+          end
+
         case num_blocks == 0 do
-          true -> ""
+          true ->
+            ""
+
           false ->
             pos = (block + 1) * @big_block_size
             new_stream = stream <> binary_part(ole.binary, pos, @big_block_size)
@@ -98,52 +105,76 @@ defmodule Exoffice.Parser.Excel2003.OLE do
     # Total number of sectors used by MSAT
     num_extension_blocks = get_int_4d(binary, @num_extension_block_pos)
 
-    bbd_blocks = case num_extension_blocks != 0 do
-      true -> (@big_block_size - @big_block_depot_blocks_pos) / 4 |> round
-      false -> num_big_block_depot_blocks
-    end
+    bbd_blocks =
+      case num_extension_blocks != 0 do
+        true -> ((@big_block_size - @big_block_depot_blocks_pos) / 4) |> round
+        false -> num_big_block_depot_blocks
+      end
 
-    {big_block_depot_blocks, _} = case bbd_blocks do
-      0 -> {[], @big_block_depot_blocks_pos}
-      _ -> 0..bbd_blocks - 1
-        |> Enum.reduce({[], @big_block_depot_blocks_pos}, fn _, {acc, pos} ->
-          {acc ++ [get_int_4d(binary, pos)], pos + 4}
-        end)
-    end
+    {big_block_depot_blocks, _} =
+      case bbd_blocks do
+        0 ->
+          {[], @big_block_depot_blocks_pos}
 
-    big_block_depot_blocks = case num_extension_blocks do
-      0 -> big_block_depot_blocks
-      _ -> [_, _, big_block_depot_blocks, _] = 0..num_extension_blocks - 1
-        |> Enum.reduce([extension_block, bbd_blocks, big_block_depot_blocks, (extension_block + 1) * @big_block_size], fn _, [extension_block, bbd_blocks, big_block_depot_blocks, pos] ->
-          blocks_to_read = min(num_big_block_depot_blocks - bbd_blocks, @big_block_size / 4 - 1) |> round
+        _ ->
+          0..(bbd_blocks - 1)
+          |> Enum.reduce({[], @big_block_depot_blocks_pos}, fn _, {acc, pos} ->
+            {acc ++ [get_int_4d(binary, pos)], pos + 4}
+          end)
+      end
 
-          {big_block_depot_blocks, pos} = case bbd_blocks + blocks_to_read do
-            0 -> {big_block_depot_blocks, pos}
-            _ ->
-              Enum.reduce(bbd_blocks..bbd_blocks + blocks_to_read, {big_block_depot_blocks, pos}, fn _, {acc, pos} ->
-                {acc ++ [get_int_4d(binary, pos)], pos + 4}
-              end)
-          end
+    big_block_depot_blocks =
+      case num_extension_blocks do
+        0 ->
+          big_block_depot_blocks
 
-          big_block_depot_blocks = Enum.slice(big_block_depot_blocks, 0, Enum.count(big_block_depot_blocks) - 1)
+        _ ->
+          [_, _, big_block_depot_blocks, _] =
+            0..(num_extension_blocks - 1)
+            |> Enum.reduce(
+              [extension_block, bbd_blocks, big_block_depot_blocks, (extension_block + 1) * @big_block_size],
+              fn _, [extension_block, bbd_blocks, big_block_depot_blocks, pos] ->
+                blocks_to_read = min(num_big_block_depot_blocks - bbd_blocks, @big_block_size / 4 - 1) |> round
 
-          bbd_blocks = bbd_blocks + blocks_to_read
-          new_extension_block = if bbd_blocks < num_big_block_depot_blocks, do: get_int_4d(binary, pos), else: extension_block
+                {big_block_depot_blocks, pos} =
+                  case bbd_blocks + blocks_to_read do
+                    0 ->
+                      {big_block_depot_blocks, pos}
 
-          [new_extension_block, bbd_blocks, big_block_depot_blocks, pos]
-        end)
-        big_block_depot_blocks
-    end
+                    _ ->
+                      Enum.reduce(bbd_blocks..(bbd_blocks + blocks_to_read), {big_block_depot_blocks, pos}, fn _,
+                                                                                                               {acc,
+                                                                                                                pos} ->
+                        {acc ++ [get_int_4d(binary, pos)], pos + 4}
+                      end)
+                  end
 
-    big_block_chain = case num_big_block_depot_blocks do
-      0 -> ""
-      _ ->
-        0..num_big_block_depot_blocks - 1
-        |> Enum.reduce("", fn i, big_block_chain ->
-          new_pos = (Enum.at(big_block_depot_blocks, i) + 1) * @big_block_size
-          big_block_chain <> binary_part(binary, new_pos, @big_block_size)
-        end)
-    end
+                big_block_depot_blocks = Enum.slice(big_block_depot_blocks, 0, Enum.count(big_block_depot_blocks) - 1)
+
+                bbd_blocks = bbd_blocks + blocks_to_read
+
+                new_extension_block =
+                  if bbd_blocks < num_big_block_depot_blocks, do: get_int_4d(binary, pos), else: extension_block
+
+                [new_extension_block, bbd_blocks, big_block_depot_blocks, pos]
+              end
+            )
+
+          big_block_depot_blocks
+      end
+
+    big_block_chain =
+      case num_big_block_depot_blocks do
+        0 ->
+          ""
+
+        _ ->
+          0..(num_big_block_depot_blocks - 1)
+          |> Enum.reduce("", fn i, big_block_chain ->
+            new_pos = (Enum.at(big_block_depot_blocks, i) + 1) * @big_block_size
+            big_block_chain <> binary_part(binary, new_pos, @big_block_size)
+          end)
+      end
 
     small_block_chain = get_sbd_block(binary, big_block_chain, "", sbd_start_block)
     entry = read_data(binary, "", root_start_block, big_block_chain)
@@ -170,13 +201,14 @@ defmodule Exoffice.Parser.Excel2003.OLE do
   def read_property_sets(offset, loader) do
     #  loop through entires, each entry is 128 bytes
     entry_len = byte_size(loader.entry)
+
     case offset < entry_len do
       true ->
         # entry data (128 bytes)
         d = binary_part(loader.entry, offset, @property_storage_block_size)
 
         # size in bytes of name
-        name_size = decoded_binary_at(d, @size_of_name_pos) ||| (decoded_binary_at(d, @size_of_name_pos + 1) <<< 8)
+        name_size = decoded_binary_at(d, @size_of_name_pos) ||| decoded_binary_at(d, @size_of_name_pos + 1) <<< 8
 
         # type of entry
         type = decoded_binary_at(d, @type_pos)
@@ -194,39 +226,51 @@ defmodule Exoffice.Parser.Excel2003.OLE do
           start_block: start_block,
           size: size
         }
+
         loader = %{loader | props: loader.props ++ [props]}
 
         # tmp helper to simplify checks
         up_name = String.upcase(name)
 
         # Workbook directory entry (BIFF5 uses Book, BIFF8 uses Workbook)
-        {workbook, root_entry} = cond do
-          up_name == "WORKBOOK" || up_name == "BOOK" ->
-            {Enum.count(loader.props) - 1, loader.root_entry}
-          up_name == "ROOT ENTRY" || up_name == "R" ->
-            {loader.workbook, Enum.count(loader.props) - 1}
-          true -> {loader.workbook, loader.root_entry}
-        end
+        {workbook, root_entry} =
+          cond do
+            up_name == "WORKBOOK" || up_name == "BOOK" ->
+              {Enum.count(loader.props) - 1, loader.root_entry}
+
+            up_name == "ROOT ENTRY" || up_name == "R" ->
+              {loader.workbook, Enum.count(loader.props) - 1}
+
+            true ->
+              {loader.workbook, loader.root_entry}
+          end
 
         # Summary information
-        summary_information = case name == <<5>> <> "SummaryInformation" do
-          true -> Enum.count(loader.props) - 1
-          false -> loader.summary_information
-        end
+        summary_information =
+          case name == <<5>> <> "SummaryInformation" do
+            true -> Enum.count(loader.props) - 1
+            false -> loader.summary_information
+          end
 
         # Additional Document Summary information
-        document_summary_information = case name == <<5>> <> "DocumentSummaryInformation" do
-          true -> Enum.count(loader.props) - 1
-          false -> loader.document_summary_information
-        end
-        loader = %{loader |
-          summary_information: summary_information,
-          document_summary_information: document_summary_information,
-          workbook: workbook,
-          root_entry: root_entry,
+        document_summary_information =
+          case name == <<5>> <> "DocumentSummaryInformation" do
+            true -> Enum.count(loader.props) - 1
+            false -> loader.document_summary_information
+          end
+
+        loader = %{
+          loader
+          | summary_information: summary_information,
+            document_summary_information: document_summary_information,
+            workbook: workbook,
+            root_entry: root_entry
         }
+
         read_property_sets(offset + @property_storage_block_size, loader)
-      false -> read_property_sets(nil, loader)
+
+      false ->
+        read_property_sets(nil, loader)
     end
   end
 
@@ -246,33 +290,36 @@ defmodule Exoffice.Parser.Excel2003.OLE do
   end
 
   defp get_sbd_block(binary, big_block_chain, small_block_chain, sbd_block) do
-      pos = (sbd_block + 1) * @big_block_size
-      small_block_chain = small_block_chain <> binary_part(binary, pos, @big_block_size)
-      sbd_block = get_int_4d(big_block_chain, sbd_block * 4)
-      get_sbd_block(binary, big_block_chain, small_block_chain, sbd_block)
+    pos = (sbd_block + 1) * @big_block_size
+    small_block_chain = small_block_chain <> binary_part(binary, pos, @big_block_size)
+    sbd_block = get_int_4d(big_block_chain, sbd_block * 4)
+    get_sbd_block(binary, big_block_chain, small_block_chain, sbd_block)
   end
 
   def get_int_4d(binary, pos) do
     or_24 = decoded_binary_at(binary, pos + 3)
-    ord_24 = case or_24 >= 128 do
-      #  negative number
-      true ->
-        -abs((256 - or_24) <<< 24)
-      false ->
-        (or_24 &&& 127) <<< 24
-    end
 
-    decoded_binary_at(binary, pos) ||| (decoded_binary_at(binary, pos + 1) <<< 8) ||| (decoded_binary_at(binary, pos + 2) <<< 16) ||| ord_24
+    ord_24 =
+      case or_24 >= 128 do
+        #  negative number
+        true ->
+          -abs((256 - or_24) <<< 24)
+
+        false ->
+          (or_24 &&& 127) <<< 24
+      end
+
+    decoded_binary_at(binary, pos) ||| decoded_binary_at(binary, pos + 1) <<< 8 |||
+      decoded_binary_at(binary, pos + 2) <<< 16 ||| ord_24
   end
 
   def get_int_2d(binary, pos) do
-    decoded_binary_at(binary, pos) ||| (decoded_binary_at(binary, pos + 1) <<< 8)
+    decoded_binary_at(binary, pos) ||| decoded_binary_at(binary, pos + 1) <<< 8
   end
 
   def decoded_binary_at(binary, pos) do
     binary
     |> binary_part(pos, 1)
-    |> :binary.decode_unsigned
+    |> :binary.decode_unsigned()
   end
-
 end

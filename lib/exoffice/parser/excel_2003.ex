@@ -36,7 +36,7 @@ defmodule Exoffice.Parser.Excel2003 do
 
   """
   def parse_sheet(path, index, _options \\ []) do
-    Loader.load(path, index) |> List.first
+    Loader.load(path, index) |> List.first()
   end
 
   @doc """
@@ -89,5 +89,4 @@ defmodule Exoffice.Parser.Excel2003 do
   def close(pid) do
     Xlsxir.close(pid)
   end
-
 end
