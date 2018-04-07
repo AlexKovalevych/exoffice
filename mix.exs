@@ -2,22 +2,24 @@ defmodule Exoffice.Mixfile do
   use Mix.Project
 
   def project do
-    [app: :exoffice,
-     version: "0.1.0",
-     name: "Exoffice",
-     elixir: "~> 1.3",
-     build_embedded: Mix.env == :prod,
-     start_permanent: Mix.env == :prod,
-     description: description(),
-     package: package(),
-     deps: deps()]
+    [
+      app: :exoffice,
+      version: "0.2.0",
+      name: "Exoffice",
+      elixir: "~> 1.6",
+      build_embedded: Mix.env() == :prod,
+      start_permanent: Mix.env() == :prod,
+      description: description(),
+      package: package(),
+      deps: deps()
+    ]
   end
 
   # Configuration for the OTP application
   #
   # Type "mix help compile.app" for more information
   def application do
-    [applications: [:logger, :iconv]]
+    [applications: [:logger, :iconv, :xlsxir]]
   end
 
   defp description do
@@ -38,9 +40,9 @@ defmodule Exoffice.Mixfile do
   # Type "mix help deps" for more examples and options
   defp deps do
     [
-      {:xlsxir, "~> 1.4"},
-      {:csv, "~> 1.4"},
-      {:ex_doc, "~> 0.14.4"},
+      {:xlsxir, "~> 1.6"},
+      {:csv, "~> 2.1"},
+      {:ex_doc, "~> 0.18.3"},
       {:earmark, "~> 1.0"},
       {:iconv, "~> 1.0"}
     ]
@@ -56,5 +58,4 @@ defmodule Exoffice.Mixfile do
       }
     ]
   end
-
 end

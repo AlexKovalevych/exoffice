@@ -1,9 +1,11 @@
-%{"csv": {:hex, :csv, "1.4.4", "992f2e1418849a326fd1d9287801fa2d86091db4f9611f60781da6d236f64cd4", [:mix], [{:parallel_stream, "~> 1.0.4", [hex: :parallel_stream, optional: false]}]},
-  "earmark": {:hex, :earmark, "1.0.3", "89bdbaf2aca8bbb5c97d8b3b55c5dd0cff517ecc78d417e87f1d0982e514557b", [:mix], []},
+%{
+  "csv": {:hex, :csv, "2.1.1", "a4c1a7c30d2151b6e4976cb2f52c0a1d49ec965afb737ed84a684bc4284d1627", [:mix], [{:parallel_stream, "~> 1.0.4", [hex: :parallel_stream, repo: "hexpm", optional: false]}], "hexpm"},
+  "earmark": {:hex, :earmark, "1.2.5", "4d21980d5d2862a2e13ec3c49ad9ad783ffc7ca5769cf6ff891a4553fbaae761", [:mix], [], "hexpm"},
   "erlsom": {:hex, :erlsom, "1.4.1", "53dbacf35adfea6f0714fd0e4a7b0720d495e88c5e24e12c5dc88c7b62bd3e49", [:rebar3], []},
-  "ex_doc": {:hex, :ex_doc, "0.14.4", "a0a79a6896075814f4bc6802b74ccbed6549f47cc5ab34c71eaee2303170b8ef", [:mix], [{:earmark, "~> 1.0", [hex: :earmark, optional: false]}]},
+  "ex_doc": {:hex, :ex_doc, "0.18.3", "f4b0e4a2ec6f333dccf761838a4b253d75e11f714b85ae271c9ae361367897b7", [:mix], [{:earmark, "~> 1.1", [hex: :earmark, repo: "hexpm", optional: false]}], "hexpm"},
   "fast_xml": {:hex, :fast_xml, "1.1.15", "6d23eb7f874e1357cf80a48d75a7bd0c8f6318029dc4b70122e9f54911f57f83", [:rebar3], [{:p1_utils, "1.0.5", [hex: :p1_utils, optional: false]}]},
   "iconv": {:hex, :iconv, "1.0.2", "a0792f06ab4b5ea1b5bb49789405739f1281a91c44cf3879cb70e4d777666217", [:rebar3], [{:p1_utils, "1.0.5", [hex: :p1_utils, optional: false]}]},
   "p1_utils": {:hex, :p1_utils, "1.0.5", "3e698354fdc1fea5491d991457b0cb986c0a00a47d224feb841dc3ec82b9f721", [:rebar3], []},
-  "parallel_stream": {:hex, :parallel_stream, "1.0.5", "4c78d3e675f9eff885cbe252c89a8fc1d2fb803c0d03a914281e587834e09431", [:mix], []},
-  "xlsxir": {:hex, :xlsxir, "1.4.1", "97288b6a58810fa4b213738438b2258528f1977bf15bd2e9feef615cdfa9e022", [:mix], [{:erlsom, "~> 1.4", [hex: :erlsom, optional: false]}]}}
+  "parallel_stream": {:hex, :parallel_stream, "1.0.6", "b967be2b23f0f6787fab7ed681b4c45a215a81481fb62b01a5b750fa8f30f76c", [:mix], [], "hexpm"},
+  "xlsxir": {:hex, :xlsxir, "1.6.2", "18459faf8009d78363bdee1948a0f25631aec604d70d343fc3ad3c22c2a8df77", [:mix], [{:erlsom, "~> 1.4", [hex: :erlsom, repo: "hexpm", optional: false]}], "hexpm"},
+}

@@ -9,18 +9,18 @@ defmodule Exoffice.Parser do
   May return tuple with result or list of tuples if excel file has multiple
   worksheets
   """
-  @callback parse(String.t, Keyword) :: [{:ok, pid} | {:error, String.t}]
+  @callback parse(String.t(), Keyword) :: [{:ok, pid} | {:error, String.t()}]
 
   @doc """
   Function to parse file by path and given sheet index
   Returns result with pid or error with reason
   """
-  @callback parse_sheet(String.t, Integer, Keyword) :: {:ok, pid} | {:error, String.t}
+  @callback parse_sheet(String.t(), Integer, Keyword) :: {:ok, pid} | {:error, String.t()}
 
   @doc """
   Returns a list of supported extensions by parser
   """
-  @callback extensions() :: [String.t]
+  @callback extensions() :: [String.t()]
 
   @doc """
   Count rows by pid

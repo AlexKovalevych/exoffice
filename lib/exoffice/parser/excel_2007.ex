@@ -1,5 +1,4 @@
 defmodule Exoffice.Parser.Excel2007 do
-
   @behaviour Exoffice.Parser
 
   def extensions, do: [".xlsx"]
@@ -80,5 +79,4 @@ defmodule Exoffice.Parser.Excel2007 do
   def close(pid) do
     Xlsxir.close(pid)
   end
-
 end

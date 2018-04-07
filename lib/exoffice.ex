@@ -33,15 +33,20 @@ defmodule Exoffice do
   """
   def parse(path, sheet \\ nil) do
     config = Application.get_env(:exoffice, __MODULE__, [])
-    parsers = case config[:parsers] do
-      nil -> []
-      parsers -> parsers
-    end
+
+    parsers =
+      case config[:parsers] do
+        nil -> []
+        parsers -> parsers
+      end
+
     parsers = parsers ++ @default_parsers
     extension = Path.extname(path)
-    parser = Enum.reduce_while(parsers, nil, fn parser, acc ->
-      if Enum.member?(parser.extensions, extension), do: {:halt, parser}, else: {:cont, acc}
-    end)
+
+    parser =
+      Enum.reduce_while(parsers, nil, fn parser, acc ->
+        if Enum.member?(parser.extensions, extension), do: {:halt, parser}, else: {:cont, acc}
+      end)
 
     if is_nil(parser) do
       {:error, "No parser for this file"}
@@ -49,12 +54,15 @@ defmodule Exoffice do
       case is_nil(sheet) do
         true ->
           pids = parser.parse(path)
+
           Enum.map(pids, fn
             {:ok, pid} -> {:ok, pid, parser}
             {:error, reason} -> {:error, reason}
           end)
+
         false ->
           result = parser.parse_sheet(path, sheet)
+
           case result do
             {:ok, pid} -> {:ok, pid, parser}
             _ -> result
@@ -143,5 +151,4 @@ defmodule Exoffice do
   def count_rows(pid, parser) do
     parser.count_rows(pid)
   end
-
 end
