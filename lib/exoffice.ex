@@ -18,7 +18,6 @@ defmodule Exoffice do
   ## Example
   Parse all worksheets in different files:
 
-      iex> Application.start(:xlsxir)
       iex> [{:ok, pid1, _}, {:ok, pid2, _}] = Exoffice.parse("./test/test_data/test.xls")
       iex> Enum.member?(:ets.all, pid1) && Enum.member?(:ets.all, pid2)
       true
@@ -81,7 +80,6 @@ defmodule Exoffice do
 
   ## Example
 
-      iex> Application.start(:xlsxir)
       iex> [{:ok, pid1, parser1}, {:ok, _pid2, _parser2}] = Exoffice.parse("./test/test_data/test.xls")
       iex> Exoffice.get_rows(pid1, parser1) |> Enum.count
       23
@@ -107,7 +105,6 @@ defmodule Exoffice do
   - `parser` - is a module, used for parsing a file, returned with pid after parsing
 
   ## Example
-      iex> Application.start(:xlsxir)
       iex> [{:ok, pid1, parser1}, {:ok, pid2, parser2}] = Exoffice.parse("./test/test_data/test.xls")
       iex> Exoffice.close(pid1, parser1)
       iex> Exoffice.close(pid2, parser2)
@@ -138,7 +135,6 @@ defmodule Exoffice do
   - `parser` - is a module, used for parsing a file, returned with pid after parsing
 
   ## Example
-      iex> Application.start(:xlsxir)
       iex> [{:ok, pid1, parser1}, {:ok, pid2, parser2}] = Exoffice.parse("./test/test_data/test.xls")
       iex> [Exoffice.count_rows(pid1, parser1), Exoffice.count_rows(pid2, parser2)]
       [23,10]

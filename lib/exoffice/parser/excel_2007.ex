@@ -7,7 +7,6 @@ defmodule Exoffice.Parser.Excel2007 do
 
   ## Example
 
-  iex> Application.start(:xlsxir)
   iex> [{:ok, pid1}, {:ok, pid2}] = Exoffice.Parser.Excel2007.parse("./test/test_data/test.xlsx")
   iex> Enum.member?(:ets.all, pid1) && Enum.member?(:ets.all, pid2)
   true
@@ -21,7 +20,6 @@ defmodule Exoffice.Parser.Excel2007 do
 
   ## Example
 
-  iex> Application.start(:xlsxir)
   iex> {:ok, pid} = Exoffice.Parser.Excel2007.parse_sheet("./test/test_data/test.xlsx", 1)
   iex> Enum.member?(:ets.all, pid)
   true
@@ -35,7 +33,6 @@ defmodule Exoffice.Parser.Excel2007 do
 
   ## Example
 
-  iex> Application.start(:xlsxir)
   iex> {:ok, pid} = Exoffice.Parser.Excel2007.parse_sheet("./test/test_data/test.xlsx", 1)
   iex> Exoffice.Parser.Excel2007.count_rows(pid)
   10
@@ -49,7 +46,6 @@ defmodule Exoffice.Parser.Excel2007 do
 
   ## Example
 
-  iex> Application.start(:xlsxir)
   iex> {:ok, pid} = Exoffice.Parser.Excel2007.parse_sheet("./test/test_data/test.xlsx", 1)
   iex> Exoffice.Parser.Excel2007.get_rows(pid) |> Enum.to_list
   [[23, 3, 12, 1, nil], [2, 12, 41, nil, nil],
@@ -69,7 +65,6 @@ defmodule Exoffice.Parser.Excel2007 do
 
   ## Example
 
-  iex> Application.start(:xlsxir)
   iex> [{:ok, pid1}, {:ok, pid2}] = Exoffice.Parser.Excel2007.parse("./test/test_data/test.xlsx")
   iex> Enum.member?(:ets.all, pid1) && Enum.member?(:ets.all, pid2)
   true

@@ -19,7 +19,7 @@ defmodule Exoffice.Mixfile do
   #
   # Type "mix help compile.app" for more information
   def application do
-    [applications: [:logger, :iconv]]
+    [applications: [:logger, :iconv, :xlsxir]]
   end
 
   defp description do
