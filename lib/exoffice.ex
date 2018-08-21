@@ -34,6 +34,7 @@ defmodule Exoffice do
       true
   """
   def parse(path, options \\ []) do
+    options = fix_options(options)
     sheet = options[:sheet]
     parser_options = options[:parser_options] || []
 
@@ -150,6 +151,11 @@ defmodule Exoffice do
   def count_rows(pid, parser) do
     parser.count_rows(pid)
   end
+
+  # Keep the compatibility with using the first parameter as sheet number
+  defp fix_options(n) when is_number(n), do: [sheet: n]
+  defp fix_options(nil), do: []
+  defp fix_options(ops), do: ops
 
   defp find_parser(parsers, extension) do
     Enum.reduce_while(parsers, nil, fn parser, acc ->
