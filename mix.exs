@@ -4,7 +4,7 @@ defmodule Exoffice.Mixfile do
   def project do
     [
       app: :exoffice,
-      version: "0.2.0",
+      version: "0.3.0",
       name: "Exoffice",
       elixir: "~> 1.6",
       build_embedded: Mix.env() == :prod,
@@ -50,7 +50,7 @@ defmodule Exoffice.Mixfile do
 
   defp package do
     [
-      maintainers: ["Alex Kovalevych"],
+      maintainers: ["Alex Kovalevych", "Rock Neurotiko (Miguel G)"],
       licenses: ["MIT License"],
       links: %{
         "Github" => "https://github.com/alexkovalevych/exoffice",
