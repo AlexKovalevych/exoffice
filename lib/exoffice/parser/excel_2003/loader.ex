@@ -29,6 +29,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
   @xls_type_labelsst 0x00FD
   @xls_type_number 0x0203
   @xls_type_rk 0x027E
+  @xls_type_mulrk 0x0BD
   @xls_type_blank 0x0201
   @xls_type_eof 0x000A
 
@@ -115,6 +116,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
       @xls_type_labelsst -> read_label_sst(loader, pos, excel, table_id)
       @xls_type_number -> read_number(loader, pos, excel, table_id)
       @xls_type_rk -> read_rk(loader, pos, excel, table_id)
+      @xls_type_mulrk -> read_mulrk(loader, pos, excel, table_id)
       @xls_type_blank -> read_blank(loader, pos, excel, table_id)
       @xls_type_eof -> read_default(loader, pos, excel, :parse_sheet_part, nil)
       _ -> read_default(loader, pos, excel, :parse_sheet_part, table_id)
@@ -262,6 +264,44 @@ defmodule Exoffice.Parser.Excel2003.Loader do
 
       _ ->
         :ets.insert(pid, {row, [[column_string <> to_string(row), value]]})
+    end
+
+    parse_sheet_part(loader, pos + 4 + length, excel, pid)
+  end
+
+  defp read_mulrk(%__MODULE__{data: stream} = loader, pos, excel, pid) do
+    length = OLE.get_int_2d(stream, pos + 2)
+    record_data = read_record_data(stream, pos + 4, length)
+
+    # offset: 0; size: 2; index to row
+    row = OLE.get_int_2d(record_data, 0) + 1
+
+    # offset: 2; size 2; index to column
+    column = OLE.get_int_2d(record_data, 2)
+    last_column = OLE.get_int_2d(record_data, length - 2)
+
+    col_count = last_column - column
+
+    for idx <- 0..col_count do
+      col = idx + column
+      column_string = Cell.string_from_column_index(col)
+
+      rkrec = binary_part(record_data, 4 + idx, 6)
+      <<_ixfe::size(16), rknumber::bits>> = rkrec
+
+      value =
+        rknumber
+        |> extract_rknumber()
+        |> maybe_convert_to_int()
+
+      # add cell
+      case :ets.match(pid, {row, :"$1"}) do
+        [[cells]] ->
+          :ets.insert(pid, {row, cells ++ [[column_string <> to_string(row), value]]})
+
+        _ ->
+          :ets.insert(pid, {row, [[column_string <> to_string(row), value]]})
+      end
     end
 
     parse_sheet_part(loader, pos + 4 + length, excel, pid)
