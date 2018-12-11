@@ -36,7 +36,7 @@ defmodule ExofficeTest do
 
     test "decode CSV in a safe way" do
       [{:ok, pid, parser}] =
-        Exoffice.parse("./test/test_data/test_semicolon.csv", parser_options: [safe: true, separator: ?;])
+        Exoffice.parse("./test/test_data/test_invalid.csv", parser_options: [safe: true, separator: ?;])
 
       expected = [
         {:ok, ["2", "23", "23", "2", "asg", "2", "sadg"]},
@@ -56,11 +56,11 @@ defmodule ExofficeTest do
         {:ok, ["", "", "", "", "", "", ""]},
         {:ok, ["", "", "", "", "", "", ""]},
         {:ok, ["", "", "", "", "", "", ""]},
-        {:ok, ["", "", "", "", "", "", ""]},
-        {:ok, ["", "", "", "", "", "", ""]},
-        {:ok, ["", "", "", "", "", "", ""]},
-        {:ok, ["", "", "", "", "", "", ""]},
-        {:ok, ["", "", "", "", "", "", ""]}
+        {:error, "Row has length 2 - expected length 7 on line 18"},
+        {:error, "Row has length 5 - expected length 7 on line 19"},
+        {:error, "Row has length 3 - expected length 7 on line 20"},
+        {:error, "Row has length 6 - expected length 7 on line 21"},
+        {:error, "Row has length 4 - expected length 7 on line 22"}
       ]
 
       assert is_pid(pid)
