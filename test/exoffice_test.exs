@@ -33,5 +33,38 @@ defmodule ExofficeTest do
       assert is_pid(pid)
       assert Exoffice.get_rows(pid, parser) |> Enum.to_list() == expected
     end
+
+    test "decode CSV in a safe way" do
+      [{:ok, pid, parser}] =
+        Exoffice.parse("./test/test_data/test_semicolon.csv", parser_options: [safe: true, separator: ?;])
+
+      expected = [
+        {:ok, ["2", "23", "23", "2", "asg", "2", "sadg"]},
+        {:ok, ["sd", "123", "2", "3", "12", "", "23"]},
+        {:ok, ["g", "", "", "1", "", "1", ""]},
+        {:ok, ["2016-01-01", "", "", "", "3", "", ""]},
+        {:ok, ["", "", "", "", "", "", ""]},
+        {:ok, ["", "", "", "", "", "", ""]},
+        {:ok, ["", "", "", "", "", "", ""]},
+        {:ok, ["", "", "", "", "", "", ""]},
+        {:ok, ["", "", "", "", "", "", ""]},
+        {:ok, ["", "", "", "", "", "", ""]},
+        {:ok, ["", "", "", "", "", "", ""]},
+        {:ok, ["", "", "", "", "", "", ""]},
+        {:ok, ["", "", "", "", "", "", ""]},
+        {:ok, ["", "", "", "", "", "", ""]},
+        {:ok, ["", "", "", "", "", "", ""]},
+        {:ok, ["", "", "", "", "", "", ""]},
+        {:ok, ["", "", "", "", "", "", ""]},
+        {:ok, ["", "", "", "", "", "", ""]},
+        {:ok, ["", "", "", "", "", "", ""]},
+        {:ok, ["", "", "", "", "", "", ""]},
+        {:ok, ["", "", "", "", "", "", ""]},
+        {:ok, ["", "", "", "", "", "", ""]}
+      ]
+
+      assert is_pid(pid)
+      assert Exoffice.get_rows(pid, parser) |> Enum.to_list() == expected
+    end
   end
 end
