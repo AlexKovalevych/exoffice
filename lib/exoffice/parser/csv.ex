@@ -11,7 +11,7 @@ defmodule Exoffice.Parser.CSV do
 
   """
   def parse(path, options \\ []) do
-    stream = File.stream!(path) |> CSV.decode!(options)
+    stream = File.stream!(path) |> decode_csv(options)
 
     case Agent.start_link(fn -> stream end, name: String.to_atom(path)) do
       {:ok, pid} ->
@@ -104,5 +104,12 @@ defmodule Exoffice.Parser.CSV do
   """
   def close(pid) do
     if Process.alive?(pid), do: Agent.stop(pid), else: :ok
+  end
+
+  defp decode_csv(stream, options) do
+    case options[:safe] do
+      true -> CSV.decode(stream, options)
+      _ -> CSV.decode!(stream, options)
+    end
   end
 end
