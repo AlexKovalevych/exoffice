@@ -640,7 +640,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
           true ->
             # list of formatting runs
             fmt_runs =
-              Enum.reduce(0..(formatting_runs - 1), fn i, acc ->
+              Enum.reduce(0..(formatting_runs - 1), [], fn i, acc ->
                 # first formatted character; zero-based
                 char_pos = OLE.get_int_2d(record_data, pos + i * 4)
 

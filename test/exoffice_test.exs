@@ -67,4 +67,17 @@ defmodule ExofficeTest do
       assert Exoffice.get_rows(pid, parser) |> Enum.to_list() == expected
     end
   end
+
+  describe "handle rich text" do
+    test "parse .xls with rich text" do
+      [{:ok, ref, parser}] = Exoffice.parse("./test/test_data/test_rich_text.xls")
+
+      expected = [
+        ["X條"]
+      ]
+
+      assert is_reference(ref)
+      assert Exoffice.get_rows(ref, parser) |> Enum.to_list() == expected
+    end
+  end
 end
