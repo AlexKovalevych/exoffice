@@ -51,9 +51,13 @@ defmodule Exoffice.Parser.Excel2003.String do
   defp uncompress_byte_string(string) do
     str_len = byte_size(string)
 
-    Enum.reduce(0..(str_len - 1), <<>>, fn i, acc ->
-      acc <> binary_part(string, i, 1) <> "\0"
-    end)
+    if str_len > 0 do
+      Enum.reduce(0..(str_len - 1), <<>>, fn i, acc ->
+        acc <> binary_part(string, i, 1) <> "\0"
+      end)
+    else
+      ""
+    end
   end
 
   def read_byte_string_short(string, codepage) do
