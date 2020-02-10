@@ -17,11 +17,6 @@ defmodule Exoffice.Parser.CSV do
       {:ok, pid} ->
         [{:ok, pid}]
 
-      # Reoped previously opened file
-      {:error, {:already_started, pid}} ->
-        close(pid)
-        parse(path, options)
-
       {:error, reason} ->
         [{:error, reason}]
     end
