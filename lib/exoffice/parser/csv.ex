@@ -13,14 +13,9 @@ defmodule Exoffice.Parser.CSV do
   def parse(path, options \\ []) do
     stream = File.stream!(path) |> decode_csv(options)
 
-    case Agent.start_link(fn -> stream end, name: String.to_atom(path)) do
+    case Agent.start_link(fn -> stream end) do
       {:ok, pid} ->
         [{:ok, pid}]
-
-      # Reoped previously opened file
-      {:error, {:already_started, pid}} ->
-        close(pid)
-        parse(path, options)
 
       {:error, reason} ->
         [{:error, reason}]
