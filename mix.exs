@@ -4,7 +4,7 @@ defmodule Exoffice.Mixfile do
   def project do
     [
       app: :exoffice,
-      version: "0.3.1",
+      version: "0.3.2",
       name: "Exoffice",
       elixir: "~> 1.6",
       build_embedded: Mix.env() == :prod,
