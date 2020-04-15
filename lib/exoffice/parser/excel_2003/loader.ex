@@ -28,6 +28,8 @@ defmodule Exoffice.Parser.Excel2003.Loader do
   @xls_type_continue 0x003C
   @xls_type_labelsst 0x00FD
   @xls_type_number 0x0203
+  @xls_type_rk 0x027E
+  @xls_type_mulrk 0x0BD
   @xls_type_blank 0x0201
   @xls_type_eof 0x000A
 
@@ -105,13 +107,16 @@ defmodule Exoffice.Parser.Excel2003.Loader do
 
   def parse_sheet_part(loader, pos, excel), do: {loader, pos, excel}
 
-  def parse_sheet_part(%__MODULE__{data: stream} = loader, pos, excel, table_id) when byte_size(stream) > pos do
+  def parse_sheet_part(%__MODULE__{data: stream} = loader, pos, excel, table_id)
+      when byte_size(stream) > pos do
     code = OLE.get_int_2d(stream, pos)
 
     case code do
       @xls_type_bof -> read_bof(loader, pos, excel, :parse_sheet_part, table_id)
       @xls_type_labelsst -> read_label_sst(loader, pos, excel, table_id)
       @xls_type_number -> read_number(loader, pos, excel, table_id)
+      @xls_type_rk -> read_rk(loader, pos, excel, table_id)
+      @xls_type_mulrk -> read_mulrk(loader, pos, excel, table_id)
       @xls_type_blank -> read_blank(loader, pos, excel, table_id)
       @xls_type_eof -> read_default(loader, pos, excel, :parse_sheet_part, nil)
       _ -> read_default(loader, pos, excel, :parse_sheet_part, table_id)
@@ -161,7 +166,11 @@ defmodule Exoffice.Parser.Excel2003.Loader do
       @xls_worksheet ->
         # do not use this version information for anything
         # it is unreliable (OpenOffice doc, 5.8), use only version information from the global stream
-        apply(__MODULE__, fun, if(pid, do: [loader, new_pos, excel, pid], else: [loader, new_pos, excel]))
+        apply(
+          __MODULE__,
+          fun,
+          if(pid, do: [loader, new_pos, excel, pid], else: [loader, new_pos, excel])
+        )
 
       _ ->
         # substream, e.g. chart
@@ -213,7 +222,9 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     column = OLE.get_int_2d(record_data, 2)
     column_string = Cell.string_from_column_index(column)
 
-    value = extract_number(binary_part(record_data, 6, 8))
+    value =
+      extract_number(binary_part(record_data, 6, 8))
+      |> maybe_convert_to_int()
 
     # add cell
     case :ets.match(pid, {row, :"$1"}) do
@@ -222,6 +233,75 @@ defmodule Exoffice.Parser.Excel2003.Loader do
 
       _ ->
         :ets.insert(pid, {row, [[column_string <> to_string(row), value]]})
+    end
+
+    parse_sheet_part(loader, pos + 4 + length, excel, pid)
+  end
+
+  defp read_rk(%__MODULE__{data: stream} = loader, pos, excel, pid) do
+    length = OLE.get_int_2d(stream, pos + 2)
+    record_data = read_record_data(stream, pos + 4, length)
+
+    # offset: 0; size: 2; index to row
+    row = OLE.get_int_2d(record_data, 0) + 1
+
+    # offset: 2; size 2; index to column
+    column = OLE.get_int_2d(record_data, 2)
+    column_string = Cell.string_from_column_index(column)
+
+    rkrec = binary_part(record_data, 4, 6)
+    <<_ixfe::size(16), rknumber::bits>> = rkrec
+
+    value =
+      rknumber
+      |> extract_rknumber()
+      |> maybe_convert_to_int()
+
+    # add cell
+    case :ets.match(pid, {row, :"$1"}) do
+      [[cells]] ->
+        :ets.insert(pid, {row, cells ++ [[column_string <> to_string(row), value]]})
+
+      _ ->
+        :ets.insert(pid, {row, [[column_string <> to_string(row), value]]})
+    end
+
+    parse_sheet_part(loader, pos + 4 + length, excel, pid)
+  end
+
+  defp read_mulrk(%__MODULE__{data: stream} = loader, pos, excel, pid) do
+    length = OLE.get_int_2d(stream, pos + 2)
+    record_data = read_record_data(stream, pos + 4, length)
+
+    # offset: 0; size: 2; index to row
+    row = OLE.get_int_2d(record_data, 0) + 1
+
+    # offset: 2; size 2; index to column
+    column = OLE.get_int_2d(record_data, 2)
+    last_column = OLE.get_int_2d(record_data, length - 2)
+
+    col_count = last_column - column
+
+    for idx <- 0..col_count do
+      col = idx + column
+      column_string = Cell.string_from_column_index(col)
+
+      rkrec = binary_part(record_data, 4 + idx, 6)
+      <<_ixfe::size(16), rknumber::bits>> = rkrec
+
+      value =
+        rknumber
+        |> extract_rknumber()
+        |> maybe_convert_to_int()
+
+      # add cell
+      case :ets.match(pid, {row, :"$1"}) do
+        [[cells]] ->
+          :ets.insert(pid, {row, cells ++ [[column_string <> to_string(row), value]]})
+
+        _ ->
+          :ets.insert(pid, {row, [[column_string <> to_string(row), value]]})
+      end
     end
 
     parse_sheet_part(loader, pos + 4 + length, excel, pid)
@@ -282,6 +362,27 @@ defmodule Exoffice.Parser.Excel2003.Loader do
           end
         end).()
     |> (fn v -> if sign != 0, do: v * -1, else: v end).()
+  end
+
+  defp extract_rknumber(rknumber) do
+    <<_::6, fInt::1, fx100::1, _num::bits>> = rknumber
+    raw = :binary.decode_unsigned(rknumber, :little) >>> 2
+
+    decoded =
+      if fInt == 1 do
+        <<v::little-signed-32>> = <<raw::little-32>>
+        v
+      else
+        flt = raw <<< 34
+        <<v::little-float-64>> = <<flt::little-64>>
+        v
+      end
+
+    if fx100 == 1 do
+      decoded / 100
+    else
+      decoded
+    end
   end
 
   defp read_codepage(%__MODULE__{data: stream} = loader, pos, excel) do
@@ -517,7 +618,11 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     record_data = read_record_data(stream, pos + 4, length)
 
     # offset: 0; size: 2; 0 = base 1900, 1 = base 1904
-    excel = if binary_part(record_data, 0, 1) == <<1>>, do: %{excel | base_date: @calendar_mac_1904}, else: excel
+    excel =
+      if binary_part(record_data, 0, 1) == <<1>>,
+        do: %{excel | base_date: @calendar_mac_1904},
+        else: excel
+
     parse(loader, pos + length + 4, excel)
   end
 
@@ -552,7 +657,13 @@ defmodule Exoffice.Parser.Excel2003.Loader do
           |> ExofficeString.read_byte_string_short(excel.codepage)
       end
 
-    sheet = %{name: rec_name.value, offset: rec_offset, sheet_state: sheet_state, sheet_type: sheet_type}
+    sheet = %{
+      name: rec_name.value,
+      offset: rec_offset,
+      sheet_state: sheet_state,
+      sheet_type: sheet_type
+    }
+
     parse(loader, pos + length + 4, %{excel | sheets: excel.sheets ++ [sheet]})
   end
 
@@ -563,7 +674,14 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     splice_offsets = splice_offsets ++ [Enum.at(splice_offsets, i - 1) + length]
     new_pos = pos + length + 4
 
-    get_spliced_record_data(stream, new_pos, splice_offsets, data, i + 1, OLE.get_int_2d(stream, new_pos))
+    get_spliced_record_data(
+      stream,
+      new_pos,
+      splice_offsets,
+      data,
+      i + 1,
+      OLE.get_int_2d(stream, new_pos)
+    )
   end
 
   defp get_spliced_record_data(_, pos, splice_offsets, data, _, _) do
@@ -667,7 +785,8 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     parse(loader, pos, excel)
   end
 
-  defp get_ret_str(record_data, splice_offsets, ret_str, chars_left, pos, is_compressed) when chars_left > 0 do
+  defp get_ret_str(record_data, splice_offsets, ret_str, chars_left, pos, is_compressed)
+       when chars_left > 0 do
     # look up next limit position, in case the string span more than one continue record
     limit_pos = Enum.drop_while(splice_offsets, &(pos >= &1)) |> List.first()
 
@@ -731,6 +850,19 @@ defmodule Exoffice.Parser.Excel2003.Loader do
 
     # move stream pointer to next record
     new_pos = pos + length + 4
-    apply(__MODULE__, fun, if(pid, do: [loader, new_pos, excel, pid], else: [loader, new_pos, excel]))
+
+    apply(
+      __MODULE__,
+      fun,
+      if(pid, do: [loader, new_pos, excel, pid], else: [loader, new_pos, excel])
+    )
+  end
+
+  defp maybe_convert_to_int(val) do
+    if Float.round(val) == val do
+      trunc(val)
+    else
+      val
+    end
   end
 end
