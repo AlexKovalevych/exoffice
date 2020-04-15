@@ -28,6 +28,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
   @xls_type_continue 0x003C
   @xls_type_labelsst 0x00FD
   @xls_type_number 0x0203
+  @xls_type_multiple_rk 0x00BD
   @xls_type_blank 0x0201
   @xls_type_eof 0x000A
 
@@ -112,6 +113,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
       @xls_type_bof -> read_bof(loader, pos, excel, :parse_sheet_part, table_id)
       @xls_type_labelsst -> read_label_sst(loader, pos, excel, table_id)
       @xls_type_number -> read_number(loader, pos, excel, table_id)
+      @xls_type_multiple_rk -> read_multiple_rk(loader, pos, excel, table_id)
       @xls_type_blank -> read_blank(loader, pos, excel, table_id)
       @xls_type_eof -> read_default(loader, pos, excel, :parse_sheet_part, nil)
       _ -> read_default(loader, pos, excel, :parse_sheet_part, table_id)
@@ -198,6 +200,57 @@ defmodule Exoffice.Parser.Excel2003.Loader do
       _ ->
         :ets.insert(pid, {row, [[column_string <> to_string(row), value]]})
     end
+
+    parse_sheet_part(loader, pos + 4 + length, excel, pid)
+  end
+
+  defp read_multiple_rk(%__MODULE__{data: stream} = loader, pos, excel, pid) do
+    length = OLE.get_int_2d(stream, pos + 2)
+
+    record_data = read_record_data(stream, pos + 4, length)
+
+    # offset: 0; size: 2; index to row
+    row = OLE.get_int_2d(record_data, 0) + 1
+
+    # offset: 2; size 2; number of first column
+    column = OLE.get_int_2d(record_data, 2)
+
+    # offset: 4; size: length - 6; rk records
+    record_count = div(length - 6, 6)
+
+    data =
+      0..(record_count - 1)
+      |> Enum.map(fn index ->
+        # rk record: 2 bytes index, 4 bytes rk number
+        rk_val = OLE.get_int_4d(record_data, 4 + index * 6 + 2)
+
+        num =
+          if (rk_val &&& 0x02) == 1 do
+            rk_val >>> 2
+          else
+            (rk_val &&& 0xfffffffc) <<< 32
+          end
+
+        <<value::float>> = <<num::64>>
+
+        if (rk_val &&& 0x01) == 1 do
+          value / 100
+        else
+          value
+        end
+      end)
+      |> Enum.with_index()
+      |> Enum.each(fn {value, index} ->
+        column_string = Cell.string_from_column_index(column + index)
+
+        case :ets.match(pid, {row, :"$1"}) do
+          [[cells]] ->
+            :ets.insert(pid, {row, cells ++ [[column_string <> to_string(row), value]]})
+
+          _ ->
+            :ets.insert(pid, {row, [[column_string <> to_string(row), value]]})
+        end
+      end)
 
     parse_sheet_part(loader, pos + 4 + length, excel, pid)
   end
