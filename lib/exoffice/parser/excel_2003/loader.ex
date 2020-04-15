@@ -28,6 +28,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
   @xls_type_continue 0x003C
   @xls_type_labelsst 0x00FD
   @xls_type_number 0x0203
+  @xls_type_multiple_rk 0x00BD
   @xls_type_blank 0x0201
   @xls_type_eof 0x000A
 
@@ -112,6 +113,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
       @xls_type_bof -> read_bof(loader, pos, excel, :parse_sheet_part, table_id)
       @xls_type_labelsst -> read_label_sst(loader, pos, excel, table_id)
       @xls_type_number -> read_number(loader, pos, excel, table_id)
+      @xls_type_multiple_rk -> read_multiple_rk(loader, pos, excel, table_id)
       @xls_type_blank -> read_blank(loader, pos, excel, table_id)
       @xls_type_eof -> read_default(loader, pos, excel, :parse_sheet_part, nil)
       _ -> read_default(loader, pos, excel, :parse_sheet_part, table_id)
@@ -198,6 +200,56 @@ defmodule Exoffice.Parser.Excel2003.Loader do
       _ ->
         :ets.insert(pid, {row, [[column_string <> to_string(row), value]]})
     end
+
+    parse_sheet_part(loader, pos + 4 + length, excel, pid)
+  end
+
+  defp read_multiple_rk(%__MODULE__{data: stream} = loader, pos, excel, pid) do
+    length = OLE.get_int_2d(stream, pos + 2)
+
+    record_data = read_record_data(stream, pos + 4, length)
+
+    # offset: 0; size: 2; index to row
+    row = OLE.get_int_2d(record_data, 0) + 1
+
+    # offset: 2; size 2; number of first column
+    column = OLE.get_int_2d(record_data, 2)
+
+    # offset: 4; size: length - 6; rk records
+    record_count = div(length - 6, 6)
+
+    0..(record_count - 1)
+    |> Enum.map(fn index ->
+      # rk record: 2 bytes index, 4 bytes rk number
+      rk_val = OLE.get_int_4d(record_data, 4 + index * 6 + 2)
+
+      num =
+        if (rk_val &&& 0x02) == 1 do
+          rk_val >>> 2
+        else
+          (rk_val &&& 0xfffffffc) <<< 32
+        end
+
+      <<value::float>> = <<num::64>>
+
+      if (rk_val &&& 0x01) == 1 do
+        value / 100
+      else
+        value
+      end
+    end)
+    |> Enum.with_index()
+    |> Enum.each(fn {value, index} ->
+      column_string = Cell.string_from_column_index(column + index)
+
+      case :ets.match(pid, {row, :"$1"}) do
+        [[cells]] ->
+          :ets.insert(pid, {row, cells ++ [[column_string <> to_string(row), value]]})
+
+        _ ->
+          :ets.insert(pid, {row, [[column_string <> to_string(row), value]]})
+      end
+    end)
 
     parse_sheet_part(loader, pos + 4 + length, excel, pid)
   end
@@ -578,91 +630,93 @@ defmodule Exoffice.Parser.Excel2003.Loader do
 
     nm = OLE.get_int_4d(record_data, 4)
 
-    0..(nm - 1)
-    |> Stream.scan(8, fn _, pos ->
-      {num_chars, pos} = {OLE.get_int_2d(record_data, pos), pos + 2}
-      {option_flags, pos} = {OLE.decoded_binary_at(record_data, pos), pos + 1}
+    if nm > 0 do
+      0..(nm - 1)
+      |> Stream.scan(8, fn _, pos ->
+        {num_chars, pos} = {OLE.get_int_2d(record_data, pos), pos + 2}
+        {option_flags, pos} = {OLE.decoded_binary_at(record_data, pos), pos + 1}
 
-      # bit: 0; mask: 0x01; 0 = compressed; 1 = uncompressed
-      is_compressed = (option_flags &&& 0x01) == 0
+        # bit: 0; mask: 0x01; 0 = compressed; 1 = uncompressed
+        is_compressed = (option_flags &&& 0x01) == 0
 
-      # bit: 2; mask: 0x02; 0 = ordinary; 1 = Asian phonetic
-      has_asian = (option_flags &&& 0x04) != 0
+        # bit: 2; mask: 0x02; 0 = ordinary; 1 = Asian phonetic
+        has_asian = (option_flags &&& 0x04) != 0
 
-      # bit: 3; mask: 0x03; 0 = ordinary; 1 = Rich-Text
-      has_rich_text = (option_flags &&& 0x08) != 0
+        # bit: 3; mask: 0x03; 0 = ordinary; 1 = Rich-Text
+        has_rich_text = (option_flags &&& 0x08) != 0
 
-      # number of Rich-Text formatting runs
-      {formatting_runs, pos} =
-        case has_rich_text do
-          true -> {OLE.get_int_2d(record_data, pos), pos + 2}
-          false -> {nil, pos}
-        end
+        # number of Rich-Text formatting runs
+        {formatting_runs, pos} =
+          case has_rich_text do
+            true -> {OLE.get_int_2d(record_data, pos), pos + 2}
+            false -> {nil, pos}
+          end
 
-      # size of Asian phonetic setting
-      {extended_run_length, pos} =
-        case has_asian do
-          true -> {OLE.get_int_2d(record_data, pos), pos + 4}
-          false -> {nil, pos}
-        end
+        # size of Asian phonetic setting
+        {extended_run_length, pos} =
+          case has_asian do
+            true -> {OLE.get_int_2d(record_data, pos), pos + 4}
+            false -> {nil, pos}
+          end
 
-      len = if is_compressed, do: num_chars, else: num_chars * 2
+        len = if is_compressed, do: num_chars, else: num_chars * 2
 
-      limit_pos = Enum.drop_while(splice_offsets, &(pos > &1)) |> List.first()
+        limit_pos = Enum.drop_while(splice_offsets, &(pos > &1)) |> List.first()
 
-      {ret_str, is_compressed, pos} =
-        case pos + len <= limit_pos do
-          true ->
-            {binary_part(record_data, pos, len), is_compressed, pos + len}
+        {ret_str, is_compressed, pos} =
+          case pos + len <= limit_pos do
+            true ->
+              {binary_part(record_data, pos, len), is_compressed, pos + len}
 
-          false ->
-            # character array is split between records
+            false ->
+              # character array is split between records
 
-            # first part of character array
-            ret_str = binary_part(record_data, pos, limit_pos - pos)
+              # first part of character array
+              ret_str = binary_part(record_data, pos, limit_pos - pos)
 
-            bytes_read = limit_pos - pos
+              bytes_read = limit_pos - pos
 
-            # remaining characters in Unicode string
-            chars_left = num_chars - if is_compressed, do: bytes_read, else: bytes_read / 2
+              # remaining characters in Unicode string
+              chars_left = num_chars - if is_compressed, do: bytes_read, else: bytes_read / 2
 
-            pos = limit_pos
+              pos = limit_pos
 
-            get_ret_str(record_data, splice_offsets, ret_str, chars_left, pos, is_compressed)
-        end
+              get_ret_str(record_data, splice_offsets, ret_str, chars_left, pos, is_compressed)
+          end
 
-      # convert to UTF-8
-      ret_str = ExofficeString.encode_utf_16(ret_str, is_compressed)
+        # convert to UTF-8
+        ret_str = ExofficeString.encode_utf_16(ret_str, is_compressed)
 
-      # read additional Rich-Text information, if any
-      {_fmt_runs, pos} =
-        case has_rich_text do
-          true ->
-            # list of formatting runs
-            fmt_runs =
-              Enum.reduce(0..(formatting_runs - 1), [], fn i, acc ->
-                # first formatted character; zero-based
-                char_pos = OLE.get_int_2d(record_data, pos + i * 4)
+        # read additional Rich-Text information, if any
+        {_fmt_runs, pos} =
+          case has_rich_text do
+            true ->
+              # list of formatting runs
+              fmt_runs =
+                Enum.reduce(0..(formatting_runs - 1), [], fn i, acc ->
+                  # first formatted character; zero-based
+                  char_pos = OLE.get_int_2d(record_data, pos + i * 4)
 
-                # index to font record
-                font_index = OLE.get_int_2d(record_data, pos + 2 + i * 4)
+                  # index to font record
+                  font_index = OLE.get_int_2d(record_data, pos + 2 + i * 4)
 
-                acc ++ [[char_pos, font_index]]
-              end)
+                  acc ++ [[char_pos, font_index]]
+                end)
 
-            {fmt_runs, pos + 4 * formatting_runs}
+              {fmt_runs, pos + 4 * formatting_runs}
 
-          false ->
-            {[], pos}
-        end
+            false ->
+              {[], pos}
+          end
 
-      pos = if has_asian, do: pos + extended_run_length, else: pos
+        pos = if has_asian, do: pos + extended_run_length, else: pos
 
-      :ets.insert(sst_tid, {Index.get(), ret_str})
-      Index.inc()
-      pos
-    end)
-    |> Enum.into([])
+        :ets.insert(sst_tid, {Index.get(), ret_str})
+        Index.inc()
+        pos
+      end)
+      |> Enum.into([])
+    end
 
     parse(loader, pos, excel)
   end

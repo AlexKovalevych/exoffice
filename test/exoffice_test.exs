@@ -79,4 +79,16 @@ defmodule ExofficeTest do
       assert Exoffice.get_rows(pid, parser) |> Enum.to_list() == expected
     end
   end
+
+  describe "handle multi rk" do
+    test "parse .xls with multi rk" do
+      [{:ok, pid, parser}] = Exoffice.parse("./test/test_data/test_multi_rk.xls")
+
+      expected = [
+        [1.0, 1.095]
+      ]
+
+      assert Exoffice.get_rows(pid, parser) |> Enum.to_list() == expected
+    end
+  end
 end
