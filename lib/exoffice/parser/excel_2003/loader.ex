@@ -50,7 +50,10 @@ defmodule Exoffice.Parser.Excel2003.Loader do
          loader <- get_stream(ole),
          {stream, _pos, excel} <- parse(loader, 0, %Excel2003{data_size: byte_size(loader.data)}),
          pids = parse_sheets(loader, excel, sheet) do
-      Enum.map(pids, fn {status, pid, _} -> {status, pid} end)
+      Enum.map(pids, fn {status, pid, _} ->
+        sort_ets_table_by_row(pid)
+        {status, pid}
+      end)
     else
       {:error, reason} -> {:error, reason}
     end
@@ -193,7 +196,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     # add cell
     case :ets.match(pid, {row, :"$1"}) do
       [[cells]] ->
-        :ets.insert(pid, {row, cells ++ [[column_string <> to_string(row), value]]})
+        :ets.insert(pid, {row, [[column_string <> to_string(row), value]] ++ cells})
 
       _ ->
         :ets.insert(pid, {row, [[column_string <> to_string(row), value]]})
@@ -218,7 +221,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     # add cell
     case :ets.match(pid, {row, :"$1"}) do
       [[cells]] ->
-        :ets.insert(pid, {row, cells ++ [[column_string <> to_string(row), value]]})
+        :ets.insert(pid, {row, [[column_string <> to_string(row), value]] ++ cells})
 
       _ ->
         :ets.insert(pid, {row, [[column_string <> to_string(row), value]]})
@@ -241,7 +244,7 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     # add cell
     case :ets.match(pid, {row, :"$1"}) do
       [[cells]] ->
-        :ets.insert(pid, {row, cells ++ [[column_string <> to_string(row), nil]]})
+        :ets.insert(pid, {row, [[column_string <> to_string(row), nil]] ++ cells})
 
       _ ->
         :ets.insert(pid, {row, [[column_string <> to_string(row), nil]]})
@@ -732,5 +735,10 @@ defmodule Exoffice.Parser.Excel2003.Loader do
     # move stream pointer to next record
     new_pos = pos + length + 4
     apply(__MODULE__, fun, if(pid, do: [loader, new_pos, excel, pid], else: [loader, new_pos, excel]))
+  end
+
+  def sort_ets_table_by_row(tid) do
+    rows = :ets.tab2list(tid) |> Enum.map(fn {row, cells} -> {row, Enum.sort(cells)} end)
+    :ets.insert(tid, rows)
   end
 end
